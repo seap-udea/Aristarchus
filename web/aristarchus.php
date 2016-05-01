@@ -673,7 +673,7 @@ function insertSql($table,$mapfields)
   $values=rtrim($values,",").")";
   $update=rtrim($update,",");
   $sql="insert into $table $fields values $values on duplicate key update $update";
-  //echo "SQL: $sql<br/>";
+  //$GLOBALS["body"].="SQL: $sql<br/>";
   $result=mysqlCmd($sql);
   return $result;
 }

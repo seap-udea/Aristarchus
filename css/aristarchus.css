@@ -159,10 +159,14 @@ td.help{
 input.submit{
     font-size:1.0em;
     padding:5px;
-    background:black;
+    background:#002E00;
     color:white;
     border:none;
 }
 input{
     font-size:1.0em;
+}
+img.sample{
+    height:150px;
+    margin:10px;
 }

@@ -19,12 +19,42 @@ $headers.="\n<script>\n$(document).ready(function(){\n";
 if(!isset($obsid)){$obsid=generateRandomString(6);}
 $obsdir="data/Aristarco6/$obsid";
 
+//==============================
+//UPLOADED IMAGES
+//==============================
+$upimages="";
+$upimages.="<p>Uploaded images:</p>";
+$imgs=rtrim(shell_exec("ls -m $obsdir/*_image_*.*"));
+$fimages=preg_split("/\s*,\s*/",$imgs);
+$numimgs=0;
+$upimages.="<div class='table' style='text-align:center'>";
+$images="";
+$times="";
+foreach($fimages as $img){
+  if(preg_match("/\.php/",$img)){continue;}
+  if(isBlank($img)){continue;}
+  $numimgs++;
+  $images.=rtrim(shell_exec("basename $img")).";";
+  include("$obsdir/${obsid}_image_${numimgs}.php");
+  $times.="$time;";
+$upimages.=<<<I
+<div class='cell'>
+<img class='sample' src='$img'/><br/>
+Image $numimgs<br/>
+Time: $time
+</div>
+I;
+}
+if(!$numimgs){$body.=$blankimg;}
+$upimages.="Times def:$times, Images def:$images<br/>";
+$upimages.="</div></div>";
+
 //////////////////////////////////////////////////////////
 //PAGE MENU OPTIONS
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6-contacts.php">Contact times</a>
+  <a class="inverted" href="aristarco6.php?mode=contacts">Contact times</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="aristarco6.php">Submit observations</a>
@@ -45,6 +75,19 @@ if(!isset($action)){}
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SAVE
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+else if($action=="load")
+{
+  if($observation=mysqlCmd("select * from Aristarco6 where obsid='$obsid' and code='$code'")){
+    foreach(array_keys($ARISTARCO6_FIELDS) as $field) $$field=$observation["$field"];
+    statusMsg("Observation '$obsid' loaded");
+    $headers.="$('.helpbox').hide();";
+  }else{
+    errorMsg("Code provided not valid");
+  }
+}
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//SAVE
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Next Step" or $action=="Save")
 {
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -55,16 +98,30 @@ else if($action=="Next Step" or $action=="Save")
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   //CHECK PROVIDED INFORMATION
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  $noblank=array("sitename",
-		 "latitude","longitude","timezone","altitude",
-		 "name","email","code");
-  foreach($noblank as $var){
-    if(isBlank($$var)){
-      errorMsg("No $var provided");
-      goto endaction;
+  if($step>=1){
+    shell_exec("mkdir -p $obsdir");
+    $noblank=array("sitename",
+		   "latitude","longitude","timezone","altitude",
+		   "name","email","code");
+    foreach($noblank as $var){
+      if(isBlank($$var)){
+	errorMsg("No $var provided");
+	goto endaction;
+      }
     }
   }
-  shell_exec("mkdir -p $obsdir");
+  if($step>=2){
+    if($numimgs==0){
+      if($_FILES["image"]["size"]==0){
+	errorMsg("No image provided");
+	goto endaction;
+      }
+      if(isBlank($time)){
+	errorMsg("No time provided");
+	goto endaction;
+      }
+    }
+  }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   //SAVE CALIBRATION IMAGE
@@ -82,10 +139,31 @@ else if($action=="Next Step" or $action=="Save")
   }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  //SAVE IMAGE
+  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  $imgfile=$_FILES["image"];
+  if($imgfile["size"]>0){
+    $numimgs+=1;
+    $tmp=$imgfile["tmp_name"];
+    $fname=$imgfile["name"];
+    preg_match("/\.(\w+)$/",$fname,$matches);
+    $ext=$matches[1];
+    $filename="${obsid}_image_$numimgs.$ext";
+    $filephp="${obsid}_image_$numimgs.php";
+    statusMsg("Saving image $numimgs $fname as $filename...");
+    shell_exec("cp $tmp '$obsdir/$filename'");
+    shell_exec("echo '\$time=\"$time\";' > '$obsdir/$filephp'");
+  }
+
+  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   //SAVE IN DATABASE
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  if(!preg_match("/code$/",$code)){
+    $code=md5($code)."code";
+  }
+  $body.="Times:$times, Images:$images<br/>";
   insertSql("Aristarco6",$ARISTARCO6_FIELDS);
-  statusMsg("Observation $obsid saved.");
+  statusMsg("Observation '$obsid' saved.");
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   //NEXT STEP 
@@ -110,40 +188,65 @@ $headers.="});\n";
 $headers.="</script>";
 
 //////////////////////////////////////////////////////////
-//PREPARE
+//BODY
 //////////////////////////////////////////////////////////
+if(0){}
+else if($mode=="contacts"){
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//ACTIONS
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+$body.=<<<B
+<h3>Contact times calculator</h3>
+<p>
+The web page below allows you to calculate the precise contact times
+of the transit for your specific location. The tool was developed by
+Xavier M. Jubier.  A link to the original web page is provided below.
+</p>
+<p>
+<a href="http://xjubier.free.fr/en/site_pages/MercuryTransitCalculator.html?Transit=%2720160509%27&Lat=6.2&Lng=-75.4&Elv=1670.0&TZ=%27-0500%27&DST=0&Calc=1"
+target="_blank">Open the contact time webpage in another tab</a>.
+</p>
+B;
+
+$body.=<<<B
+<iframe
+src="http://xjubier.free.fr/en/site_pages/MercuryTransitCalculator.html?Transit=%2720160509%27&Lat=6.2&Lng=-75.4&Elv=1670.0&TZ=%27-0500%27&DST=0&Calc=1"
+width="100%"
+height="1200"
+frameborder=0
+>
+</iframe>
+B;
+}else{
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//SUBMIT
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//PREPARE VARIABLES
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 if(!isset($step)){$step=1;}
+
+if(!isset($numimgs)){$numimgs=0;}
+
 if($out=shell_exec("ls $obsdir/${obsid}_calibration.*")){
   $calimage=rtrim(shell_exec("basename $out"));
 $calimage_img=<<<C
-<img src=$out height=150px style='margin-top:10px'/>
+<img class="sample" src=$out/>
 <input type="hidden" name="calimage" value="$calimage">
 C;
 }
 
-//////////////////////////////////////////////////////////
-//BODY
-//////////////////////////////////////////////////////////
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//SUBMIT
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 $body.=<<<B
 <h3>Submit your observations</h3>
 $FORM
 <input type="hidden" name="obsid" value="$obsid">
 <input type="hidden" name="step" value="$step">
-B;
+<input type="hidden" name="numimgs" value="$numimgs">
 
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//HELP BOX
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-$body.=<<<B
-<div class="box helpbox">
-Submitting your observations to the Aristarchus campaign is a three
-step process.
-<ul>
-<li>Step 1. Provide information about your location.</li>
-<li>Step 2. Upload your images.</li>
-<li>Step 3. Help us to callibrate images.</li>
-</ul>
-</div>
 B;
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -215,6 +318,9 @@ if($step>=2){
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //IMAGE UPLOAD
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
+//SUBMISSION FORM
+//==============================
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 2. Images upload</div>
@@ -236,9 +342,7 @@ $buttons
 </tr>
 <!-- -------------------- FIELD -------------------- -->
 </table>
-<p>Uploaded images:</p>
-$blankimg
-</div>
+$upimages
 B;
 }
 
@@ -246,6 +350,24 @@ if($step>=1){
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //BASIC INFORMATION
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
+//HELP
+//==============================
+$body.=<<<B
+<div class="box helpbox">
+Submitting your observations to the Aristarchus campaign is a three
+step process.
+<ul>
+<li>Step 1. Provide information about your location.</li>
+<li>Step 2. Upload your images.</li>
+<li>Step 3. Help us to callibrate images.</li>
+</ul>
+</div>
+B;
+
+//==============================
+//SUBMISSION FORM
+//==============================
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 1. Location information</div>
@@ -344,6 +466,7 @@ $buttons
 </table>
 </div>
 B;
+}
 }
 
 //////////////////////////////////////////////////////////
