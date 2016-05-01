@@ -1,0 +1,168 @@
+/* Background color: #002E00 */
+body{
+    font-family:Verdana;
+    background:#002E00;
+}
+div.table{display:table;height:100%;width:100%}
+div.row{display:table-row;height:100%;}
+div.cell{display:table-cell;}
+a,a:visited{
+    color:#002E00;
+    text-decoration:none;
+    font-weight:bold;
+}
+a.inverted{
+    color:white;
+}
+img.logo{
+    height:150px;
+}
+img.logoinst{
+    height:80px;
+}
+div.layout{
+    position:absolute;
+    top:5%;
+    bottom:0px;
+    left:10%;
+    right:10%;
+    border:solid black 0px;
+    padding:2px;
+    width:80%;
+    height:90%;
+    background:white;
+}
+div.logo{
+    text-align:center;
+    border:solid red 0px;
+    padding:10px 10px 10px 10px;
+}
+div.head{
+    text-align:left;
+    vertical-align:middle;
+    border:solid red 0px;
+    margin-bottom:2px;
+    padding:20px;
+}
+div.logos{
+    text-align:right;
+    vertical-align:middle;
+    border:solid red 0px;
+    margin-bottom:2px;
+    padding:10px;
+}
+div.menu{
+    text-align:left;
+    border:solid red 0px;
+    margin-bottom:2px;
+    background:#002E00;
+    color:white;
+    vertical-align:middle;
+}
+div.body{
+    height:100%;
+    border:solid blue 0px;
+    margin-bottom:2px;
+    padding:10px;
+}
+div.footer{
+    height:100%;
+    border:solid green 0px;
+    padding:10px;
+    font-style:italic;
+    font-size:0.8em;
+    background:#002E00;
+    color:white;
+}
+div.messages{
+    color:blue;
+    border:solid blue 0px;
+}
+/* ************************************************** */
+/* HEAD */
+/* ************************************************** */
+span.title{
+    font-family:Verdana;
+    font-size:2em;
+    font-weight:bold;
+}
+span.subtitle{
+    font-size:1.5em;
+    font-style:italic;
+}
+span.explanation{
+    font-size:1.2em;
+}
+/* ************************************************** */
+/* MENU */
+/* ************************************************** */
+span.botonmenu{
+    float:left;
+    text-align:center;
+    border:solid black 0px;
+    padding:2px 10px 2px 10px;
+    font-size:0.8em;
+    border-right:solid white 1px;
+}
+/* ************************************************** */
+/* BOX */
+/* ************************************************** */
+div.box{
+    width:100%-1em;
+    border:solid black 0px;
+    padding:10px;
+    border-radius:10px;
+    background-color:lightgreen;
+}
+/* ************************************************** */
+/* BOX TITLE */
+/* ************************************************** */
+div.boxtitle{
+    width:100%-5px;
+    border:solid black 0px;
+    padding:5px;
+    color:white;
+    background:#002E00;
+    border-radius:5px;
+    margin-bottom:10px;
+    font-weight:bold;
+}
+/* ************************************************** */
+/* FORM */
+/* ************************************************** */
+div.step{
+    border:solid black 0px;
+    padding:5px;
+}
+table.form{
+    border:solid blue 0px;
+    margin-left:20%;
+    font-size:1.0em;
+    width:60%;
+}
+td.field{
+    vertical-align:top;
+    text-align:right;
+    font-weight:bold;
+    width:50%;
+    padding:5px;
+}
+td.input{
+    vertical-align:top;
+}
+td.help{
+    font-size:0.8em;
+    font-style:italic;
+    text-align:center;
+}
+
+input.submit{
+    font-size:1.0em;
+    padding:5px;
+    background:black;
+    color:white;
+    border:none;
+}
+input{
+    font-size:1.0em;
+}
