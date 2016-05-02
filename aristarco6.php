@@ -7,6 +7,7 @@ $HOST=$_SERVER["HTTP_HOST"];
 $SCRIPTNAME=$_SERVER["SCRIPT_FILENAME"];
 $ROOTDIR=rtrim(shell_exec("dirname $SCRIPTNAME"));
 require("$ROOTDIR/web/aristarchus.php");
+array2Globals($_SESSION);
 $body="";
 
 //////////////////////////////////////////////////////////
@@ -27,6 +28,7 @@ $obsdir="data/Aristarco6/$obsid";
 
 //SEARCH ALREADY UPLOADED IMAGES
 $obsimages=listImages($obsid);
+$nimg=count($obsimages);
 
 //////////////////////////////////////////////////////////
 //PAGE MENU
@@ -39,11 +41,13 @@ $mainmenu.=<<<M
   <a class="inverted" href="aristarco6.php">Submit observations</a>
 </span>
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6-align.php">Images alignment</a>
+  <a class="inverted" href="aristarco6.php?mode=list">List of observations</a>
 </span>
 M;
 $title=<<<T
-<center><h3>Aristarchus 6: Transit of Mercury, May 9 2016</h3></center>
+<div class="pagetitle">
+Aristarchus 6: Transit of Mercury, May 9 2016
+</div>
 T;
 $body.=$title;
 
@@ -64,7 +68,7 @@ if(!isset($action)){}
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="load")
 {
-  if($observation=mysqlCmd("select * from Aristarco6 where obsid='$obsid' and code='$code'")){
+  if($observation=mysqlCmd("select * from Aristarco6 where obsid='$obsid' and code='$lcode'")){
     foreach(array_keys($ARISTARCO6_FIELDS) as $field) $$field=$observation["$field"];
     statusMsg("Observation '$obsid' loaded");
     $onload.="$('.helpbox').hide();";
@@ -90,6 +94,7 @@ else if($action=="load")
 else if($action=="Next Step" or $action=="Save")
 {
   //$body.=print_r($_POST,true);
+  //$body.="STEP:$step<br/>";
 
   //=====================================
   //PREPARE OBSERVATIONS DIRECTORY
@@ -104,7 +109,7 @@ else if($action=="Next Step" or $action=="Save")
   //=====================================
   //REMOVE IMAGES
   //=====================================
-  if(isset($nimg)){
+  if(isset($nimg) and $nimg>0){
     $obsimages=listImages($obsid);
     for($i=1;$i<=$nimg;$i++){
       $var="remove$i";
@@ -147,12 +152,14 @@ else if($action=="Next Step" or $action=="Save")
     $calfile=$_FILES["calimage"];
     if($calfile["size"]>0){
       $fname=$calfile["name"];
-      preg_match("/\.(\w+)$/",$fname,$matches);
-      $ext=$matches[1];
+      preg_match("/([^\.]+)\.(\w+)$/",$fname,$matches);
+      $bname=$matches[1];
+      $ext=$matches[2];
       $filename="${obsid}-calibration.$ext";
       statusMsg("Saving calibration image $fname as $filename...");
       $tmp=$calfile["tmp_name"];
       shell_exec("cp $tmp '$obsdir/$filename'");
+      shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-calibration.exif");
       $calimage=$filename;
     }
   }
@@ -163,7 +170,7 @@ else if($action=="Next Step" or $action=="Save")
     //%%%%%%%%%%%%%%%%%%%%
     if(count($obsimages)==0){
       if($_FILES["image"]["size"]==0){
-	errorMsg("No image provided");
+	errorMsg("No calibration image provided");
 	goto endaction;
       }
       if(isBlank($time)){
@@ -188,12 +195,20 @@ else if($action=="Next Step" or $action=="Save")
       $filephp="${obsid}-$suffix.php";
       statusMsg("Saving image $fname as $filename...");
       shell_exec("cp $tmp '$obsdir/$filename'");
-      $fl=fopen("$obsdir/$filephp");
+      shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-$suffix.exif");
+
+      $fl=fopen("$obsdir/$filephp","w");
       fwrite($fl,"<?php\n");
       fwrite($fl,"\$time='$time';\n");
       fwrite($fl,"?>\n");
       fclose($fl);
+
       $obsimages=listImages($obsid);
+    }
+
+    if($nimg<3 and $action=="Next Step"){
+      errorMsg("You must upload at least 3 images");
+      goto endaction;
     }
   }
   if($step>=3){
@@ -204,6 +219,7 @@ else if($action=="Next Step" or $action=="Save")
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //SAVE IMAGE INFORMATION
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    $ncimg=0;
     for($i=1;$i<=$nimg;$i++){
       $var="img$i";$val=$$var;
       $fl=fopen("$obsdir/$val.php","w");
@@ -213,6 +229,7 @@ else if($action=="Next Step" or $action=="Save")
       fwrite($fl,"\$time='$val';\n");
 
       $var="mercury${i}";$val=$$var;
+      if(preg_match("/,/",$val)){$ncimg++;}
       fwrite($fl,"\$mercury='$val';\n");
 
       $var="sunspot${i}";$val=$$var;
@@ -221,7 +238,10 @@ else if($action=="Next Step" or $action=="Save")
       fwrite($fl,"?>\n");
       fclose($fl);
     }
-
+    if($ncimg<3 and $action=="Next Step"){
+      errorMsg("$ncimg images have been calibrated");
+      goto endaction;
+    }
   }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -232,6 +252,23 @@ else if($action=="Next Step" or $action=="Save")
   }
   insertSql("Aristarco6",$ARISTARCO6_FIELDS);
 
+  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  //SAVE IN USER DATABASE
+  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  if(!mysqlCmd("select * from Users where email='$email'")){
+    statusMsg("Creating new user");
+    insertSql("Users",$USERS_FIELDS);
+  }else{
+    statusMsg("Updating user information");
+    insertSql("Users",$USERS_FIELDS);
+  }
+  if(!isset($_SESSION["email"])){
+    session_start();
+    foreach($USERS_FIELDS as $key){
+      $_SESSION["$key"]=$$key;
+    }
+    header("Refresh:0;url=aristarco6.php?action=load&obsid=$obsid&code=$code");
+  }
   if($action=="Save"){
     statusMsg("Observation '$obsid' saved.");
   }else{
@@ -251,7 +288,78 @@ else if($action=="Next Step" or $action=="Save")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Submit")
 {
+  //CHANGE STATUS
+  $step=5;
+  insertSql("Aristarco6",$ARISTARCO6_FIELDS);
 
+  //SEND CONFIRMATION E-MAIL
+  $subject="[Aristarchus Campaign 6] Your observations ($obsid) have been submitted";
+
+$message=<<<M
+<p>
+
+  Dear $name,
+
+</p>
+
+<p>
+
+  On behalf of the techincal team of
+  the <a href="http://bit.ly/aristarco-saa-6-en">Aristarchus Campaign
+  6</a> and the organizations that support it (Sociedad Antioqueña de
+  Astronomía, Universidad de Antioquia and Astronomers Without
+  Borders), we want to thank you for providing observations of the
+  Mercury Transit.
+
+</p>
+
+<p>
+
+  Your observations are now identified with the unique
+  identifier <b>$obsid</b>.  You will be able to modify these
+  observations at any time, at least until our team start a more
+  thoroughly analysis.  For that purpose you should use the following
+  direct link:
+
+</p>
+
+<center>
+<a href="$SITEURL/aristarco6.php?action=load&obsid=$obsid&lcode=$code" style="font-size:1.5em">
+Link to modify observations $obsid
+</a>
+</center>
+
+<p>
+
+  Your involvement in this campaign will demonstrate how using readily
+  available technological devices, we are able to measure,
+  colaboratively, the size of the Universe.
+  
+</p>
+
+<p> 
+
+  We will be in touch with you to provide you instantaneous updates of
+  the analysis process.  You will be also welcome to participate in
+  this important process.
+
+</p>
+
+<p>
+
+  With our best wishes,
+
+</p>
+
+<p>
+
+<b>Aristarchus Campaigns Technical Team</b>
+
+</p>
+
+M;
+   sendMail($email,$subject,$message,$EHEADERS);
+   statusMsg("Confirmation e-mail sent to $email");
 }
 
 //////////////////////////////////////////////////////////
@@ -285,6 +393,69 @@ frameborder=0
 >
 </iframe>
 B;
+}
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//CONTACTS
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+else if($mode=="list"){
+
+$body.=<<<B
+<h3>List of observations</h3>
+<p>This is the list of observation uploaded by $email</p>
+B;
+
+   //==============================
+   //LIST
+   //==============================
+   if($dbout=mysqlCmd("select * from Aristarco6 where email='$email'",$qout=1)){
+
+$body.=<<<T
+<center>
+<table border=1px>
+<tr>
+  <th>Obs.ID</th>
+  <th>Step</th>
+  <th>Sitename</th>
+  <th>Latitude</th>
+  <th>Longitude</th>
+</tr>
+T;
+     
+     foreach($dbout as $obs){
+       array2Globals($obs);
+
+$body.=<<<T
+<tr>
+  <td>
+    <a href="aristarco6.php?action=load&obsid=$obsid&email=$email&lcode=$code">$obsid</a>
+  </td>
+  <td>
+    $step
+  </td>
+  <td>
+    $sitename
+  </td>
+  <td>
+    $latitude
+  </td>
+  <td>
+    $longitude
+  </td>
+</tr>
+T;
+     }
+   }
+
+$body.=<<<T
+</table>
+</center>
+T;
+
+$body.=<<<B
+<h3>Global observations</h3>
+<p>This is the map of the observations submitted to date</p>
+B;
+
 }else{
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -434,24 +605,36 @@ BUT;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //FORMS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
 if($step>=4){
 //==============================
 //SUBMISSION BUTTON
 //==============================
+if($step>=5){
 $body.=<<<B
 <div class="step">
-<div class="boxtitle" style="text-align:center;margin-top:10px;padding:20px;">
-  <input type="submit" name="action" value="Submit">
+  <div style="text-align:center;margin-top:10px;padding:20px;background:lightblue;font-size:1.5em;">
+  Congratulations! your observations have been submitted!
 </div>
 </div>
 B;
+}else{
+$body.=<<<B
+<div class="step">
+  <div style="text-align:center;margin-top:10px;padding:20px;background:lightgreen;font-size:1.5em;">
+  You seem to be ready to
+  <input type="submit" name="action" value="Submit">
+  your observations
+</div>
+</div>
+B;
+}
 }
 
 if($step>=3){
 //==============================
 //IMAGE CALLIBRATION
 //==============================
+  if($step>3){$nextbut="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 3. Image calibration</div>
@@ -570,6 +753,17 @@ $nextbut$savebut
 <tr>
   <td class="help" colspan=2>Please provide details of your instruments or method of observation.</td>
 </tr>
+<!-- -------------------- FIELD -------------------- -->
+<tr>
+  <td colspan=2 style="text-align:center">
+    <a class="nolevel0" href="JavaScript:void(null)" onclick="$('#userinfo').toggle()">
+      Update user information
+    </a>
+  </td>
+</tr>
+</table>
+
+<table id="userinfo" class="form nolevel1">
 <!-- -------------------- FIELD -------------------- -->
 <tr>
   <td class="field">Name:</td>

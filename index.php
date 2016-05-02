@@ -29,9 +29,123 @@ $mainmenu.=<<<M
 M;
 
 //////////////////////////////////////////////////////////
+//ACTION
+//////////////////////////////////////////////////////////
+if(0){}
+else if($action=="Login"){
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //CHECK INPUT
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  if(isBlank($email)){
+    errorMsg("No email provided");
+    goto endaction;
+  }
+  if(isBlank($code)){
+    errorMsg("No code provided");
+    goto endaction;
+  }else{
+    $code=md5($code)."code";
+  }
+
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //CHECK USER
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  if($dbout=mysqlCmd("select * from Users where email='$email' and code='$code'")){
+    statusMsg("Success");
+    session_start();
+    foreach($USERS_FIELDS as $key){
+      $_SESSION["$key"]=$dbout["$key"];
+    }
+    header("Refresh:2;url=index.php");
+  }else{
+    errorMsg("User not recognized");
+  }
+
+}
+else if($action=="Recover"){
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //CHECK INPUT
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  if(isBlank($email)){
+    errorMsg("No email provided");
+    goto endaction;
+  }
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //CHECK USER
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  if($dbout=mysqlCmd("select * from Users where email='$email'")){
+    $name=$dbout["name"];
+    $code=generateRandomString(8);
+    $subject="[Aristarchus Campaigns] Password recovery";
+$message=<<<M
+<p>
+Dear $name,
+</p>
+<p>
+A new password has been reset for you in the Aristarchus Campaign Activity Website.
+</p>
+<p>
+Your new password is: <b>$code</b>
+</p>
+<p><b>Aristarchus Campaigns Technical Team</b></p>
+M;
+    sendMail($email,$subject,$message,$EHEADERS);
+    $code=md5($code)."code";
+    mysqlCmd("update Users set code='$code' where email='$email';");
+    statusMsg("A new password has been sent to '$email'");
+  }else{
+    errorMsg("User not recognized");
+  }
+ }
+endaction:
+//////////////////////////////////////////////////////////
 //BODY
 //////////////////////////////////////////////////////////
+if(0){}
+else if($mode=="login"){
+//==============================
+//STATUS AND ERRORS
+//==============================
+if(!isBlank($STATUS)){
+$body.=<<<B
+<div class="box status">
+$STATUS
+</div>
+B;
+}
 
+if(!isBlank($ERRORS)){
+$body.=<<<B
+<div class="box error">
+$ERRORS
+</div>
+B;
+}
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//LOGIN
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+$body.=<<<LOGIN
+$FORM
+<center>
+<h3>Login</h3>
+<table style="border:solid black 3px;padding:10px;">
+  <tr>
+    <th>E-mail</th><td><input type="text" name="email" value="$email"></td>
+  </tr>
+  <tr>
+    <th>Secret code</th><td><input type="password" name="code"></td>
+  </tr>
+  <tr>
+    <td colspan=2 style="text-align:center">
+      <input type="submit" name="action" value="Login">
+      <input type="submit" name="action" value="Recover">
+    </td>
+  </tr>
+</table>
+</center>
+</form>
+LOGIN;
+}else{
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 //WELCOME BOX
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -62,6 +176,7 @@ submit your images but also to perform basic analysis on them.
 
 "
 );
+}
 
 //////////////////////////////////////////////////////////
 //FOOTER

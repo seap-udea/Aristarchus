@@ -1,6 +1,8 @@
 use Aristarchus;
-alter table Aristarco6 drop column numimgs;
+alter table Users drop column campaign_s;
+alter table Users drop column obsid_s;
 /*
+alter table Aristarco6 drop column numimgs;
 alter table Aristarco6 drop column calimage;
 alter table Aristarco6 drop column images;
 alter table Aristarco6 drop column times;

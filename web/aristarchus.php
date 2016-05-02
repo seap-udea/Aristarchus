@@ -18,6 +18,31 @@ $EMAIL_PASSWORD="AristarchusSAA2016";
 //////////////////////////////////////////////////////////
 //GLOBAL VARIABLES
 //////////////////////////////////////////////////////////
+
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//PERMISSIONS
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+$QPERMISO=0;
+$PERMCSS="";
+if(isset($_SESSION["email"])){
+  $QPERMISO=1;
+}
+$type="inline";
+$perm="$type";
+$nperm="none";
+if($QPERMISO){
+  $perm="none";
+  $nperm="$type";
+}
+$PERMCSS.=".level0{display:$perm;}\n.nolevel0{display:$nperm;}\n";
+for($i=1;$i<=4;$i++){
+  $perm="none";
+  $nperm="$type";
+  if($i<=$QPERMISO){$perm="$type";$nperm="none";}
+  $PERMCSS.=".level$i{display:$perm;}\n.nolevel$i{display:$nperm;}\n";
+}
+$PERMCSS.=".level5{display:none;}\n.nolevel5{display:$type;}\n";
+
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //STATUS MESSAGES
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -193,7 +218,6 @@ function sendMail($email,$subject,$message,$headers="")
   $mail->CharSet="UTF-8";
   $mail->Body=$message;
   $mail->IsHTML(true);
-  echo "MESSAGE:$message<br/>";
   if(!($status=$mail->send())) {
     $status="Mailer Error:".$mail->ErrorInfo;
   }else{
@@ -510,6 +534,7 @@ function statusMsg($msg)
 
 function getHeaders()
 {
+  global $PERMCSS;
 $header=<<<H
 <!-- ------------------------------------------ -->
 <!-- HEADER -->
@@ -522,7 +547,9 @@ $header=<<<H
 <script src="lib/jquery-ui/jquery-ui.min.js"></script>
 <script src="lib/jquery-ui/moment.min-locales.js"></script>
 <script src="js/aristarchus.js"></script>
-
+<style>
+$PERMCSS
+</style>
 H;
  return $header;
 }
@@ -533,14 +560,33 @@ $head=<<<H
 <!-- ------------------------------------------------------- -->
 <!-- HEAD -->
 <!-- ------------------------------------------------------- -->
-<img class="logo" src="img/Aristarco.png"/>
+<a href="index.php"><img class="logo" src="img/Aristarco.png"/></a>
 H;
  return $head;
 }
 
 function getMainMenu()
 {
+  global $QPERMISO;
+
+  $userinfo="";
+if($QPERMISO){
+  $email=$_SESSION["email"];
+$userinfo=<<<U
+<span class="botonmenu">
+  $email (<a class="inverted" href="actions.php?action=logout">logout</a>)
+</span>
+U;
+}else{
+$userinfo=<<<U
+<span class="botonmenu">
+  <a class="inverted" href="index.php?mode=login">Login</a>
+</span>
+U;
+}  
+
 $mainmenu=<<<M
+$userinfo
 <span class="botonmenu">
   <a class="inverted" href=index.php>Main</a>
 </span>
@@ -592,13 +638,13 @@ $page=<<<P
   </head>
   <body>
     <div class="layout table">
-      <div class="row" style="height:30%">
+      <div class="row" style="height:20%">
 	<div class="table">
 	  <div class="row">
 	    <div class="logo cell" style="width:15%">
 	      $head
 	    </div>
-	    <div class="head cell" style="width:60%">
+	    <div class="head cell" style="width:55%">
 	      <a href="index-es.php"><img src="img/spa.png" height="20px"></a>
 	      <a href="index.php"><img src="img/eng.png" height="20px"></a>
 	      <br/>
@@ -803,7 +849,7 @@ $text=<<<T
     $text
   </div>
 T;
- $news=fadingBox($text,"background-color:lightblue",false);
+ $news=fadingBox($text,"background-color:lightblue;margin-bottom:10px;",false);
  return $news;
 }
 
@@ -816,6 +862,7 @@ function listImages($obsid)
   $images=[];
   foreach($fimages as $img){
     if(preg_match("/\.php/",$img) or
+       preg_match("/\.exif/",$img) or
        isBlank($img)){continue;}
     $numimgs++;
     $imgname=rtrim(shell_exec("basename $img"));
@@ -848,6 +895,13 @@ $ARISTARCO6_FIELDS=array();
 foreach($results as $field){
   $fieldname=$field[0];
   $ARISTARCO6_FIELDS["$fieldname"]=$fieldname;
+}
+
+$results=mysqlCmd("describe Users;",$qout=1);
+$USERS_FIELDS=array();
+foreach($results as $field){
+  $fieldname=$field[0];
+  $USERS_FIELDS["$fieldname"]=$fieldname;
 }
 
 ?>
