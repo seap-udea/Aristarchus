@@ -78,6 +78,13 @@ div.messages{
     color:blue;
     border:solid blue 0px;
 }
+div.buttons{
+    position:relative;
+    float:right;
+    top:0px;
+    text-align:right;
+    margin-right:2px;
+}
 /* ************************************************** */
 /* HEAD */
 /* ************************************************** */
@@ -178,4 +185,9 @@ input{
 img.sample{
     height:150px;
     margin:10px;
+}
+div.caption{
+    width:100%;
+    font-style:italic;
+    text-align:center;
 }

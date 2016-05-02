@@ -68,6 +68,17 @@ else if($action=="load")
     foreach(array_keys($ARISTARCO6_FIELDS) as $field) $$field=$observation["$field"];
     statusMsg("Observation '$obsid' loaded");
     $onload.="$('.helpbox').hide();";
+
+    //LOAD IMAGES INFORMATION
+    $i=1;
+    foreach($obsimages as $img){
+      preg_match("/([^\.]+)\.\w+/",$img,$matches);
+      $fname=$matches[1];
+      include("$obsdir/$fname.php");
+      $var="mercury$i";$$var=$mercury;
+      $var="sunspot$i";$$var=$sunspot;
+      $i++;
+    }
   }else{
     errorMsg("Code provided not valid");
   }
@@ -78,6 +89,8 @@ else if($action=="load")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Next Step" or $action=="Save")
 {
+  $body.=print_r($_POST,true);
+
   //=====================================
   //PREPARE OBSERVATIONS DIRECTORY
   //=====================================
@@ -87,6 +100,26 @@ else if($action=="Next Step" or $action=="Save")
   //REMOVE HELP BOXES
   //=====================================
   $onload.="$('.helpbox').hide();";
+
+  //=====================================
+  //REMOVE IMAGES
+  //=====================================
+  if(isset($nimg)){
+    $obsimages=listImages($obsid);
+    $body.=print_r($obsimages,true);
+    for($i=1;$i<=$nimg;$i++){
+      $var="remove$i";
+      if(isset($$var)){
+	$val=$$var;
+	preg_match("/([^\.]+)\.\w+/",$val,$matches);
+	$fname=$matches[1];
+	statusMsg("Deleting image $fname...");
+	shell_exec("rm $obsdir/$fname*.*");
+      }
+    }
+    $obsimages=listImages($obsid);
+    $nimg=count($obsimages);
+  }
 
   //=====================================
   //CHECK PROVIDED INFORMATION
@@ -153,7 +186,11 @@ else if($action=="Next Step" or $action=="Save")
       $filephp="${obsid}-$suffix.php";
       statusMsg("Saving image $fname as $filename...");
       shell_exec("cp $tmp '$obsdir/$filename'");
-      shell_exec("echo '\$time=\"$time\";' > '$obsdir/$filephp'");
+      $fl=fopen("$obsdir/$filephp");
+      fwrite($fl,"<?php\n");
+      fwrite($fl,"\$time='$time';\n");
+      fwrite($fl,"?>\n");
+      fclose($fl);
       $obsimages=listImages($obsid);
     }
   }
@@ -161,6 +198,28 @@ else if($action=="Next Step" or $action=="Save")
     //%%%%%%%%%%%%%%%%%%%%
     //CHECK STEP3 OPTIONS
     //%%%%%%%%%%%%%%%%%%%%
+    
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IMAGE INFORMATION
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    for($i=1;$i<=$nimg;$i++){
+      $var="img$i";$val=$$var;
+      $fl=fopen("$obsdir/$val.php","w");
+      fwrite($fl,"<?php\n");
+
+      $var="time$i";$val=$$var;
+      fwrite($fl,"\$time='$val';\n");
+
+      $var="mercury${i}";$val=$$var;
+      fwrite($fl,"\$mercury='$val';\n");
+
+      $var="sunspot${i}";$val=$$var;
+      fwrite($fl,"\$sunspot='$val';\n");
+
+      fwrite($fl,"?>\n");
+      fclose($fl);
+    }
+
   }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -268,9 +327,12 @@ foreach($obsimages as $img){
   preg_match("/([^\.]+)\.\w+/",$img,$matches);
   $fname=$matches[1];
 
+  include("$obsdir/$fname.php");
+
   //SAMPLES
 $samples.=<<<I
 <div style="float:left">
+<input type="checkbox" name="remove$nimg" value="$img"> delete<br/>
 <img class='sample' src='$obsdir/$img'/><br/>
 Image $fname<br/>
 </div>
@@ -278,27 +340,48 @@ I;
 
    //GET WIDTH AND HEIGHT OF IMAGE
    $size=getimagesize("$ROOTDIR/$obsdir/$img");
-   $width=200.0;
+   $width=400.0;
    $height=($width*$size[1])/$size[0];
 
    //CALIBRATION CANVAS
+   $varmerc="mercury$nimg";
+   $varspot="sunspot$nimg";
+   if(!isset($$varmerc)){$valmerc="Use your mouse";}
+   else{$valmerc=$$varmerc;}
+   if(!isset($$varspot)){$valspot="Use your mouse";}
+   else{$valspot=$$varspot;}
+
 $calibrate.=<<<C
 <tr>
   <td>
     <canvas id="image$nimg" value="$obsdir/$img" style="border:solid black 2px" width="$width" height="$height">
     </canvas>
-    <div id="image${nimg}_info">Info</div>
+    <div class="caption">$img</div>
+    <input type="hidden" name="img$nimg" value="$fname">
   </td>
-  <td>
-    Calibrate
+  <td valign="top">
+    <div>
+      <b>Time $nimg</b>: $time
+      <input type="hidden" name="time$nimg" value="$time">
+    </div>
+    <div>
+      <b>Mercury</b>:
+      <div id="image${nimg}_rect" style="font-style:italic;margin-left:20px;">$valmerc</div>
+      <input id="image${nimg}_irect" type="hidden" name="mercury$nimg" value="$valmerc">
+    </div>
+    <div>
+      <b>Sunspot</b>:
+      <div id="image${nimg}_rect_spot" style="font-style:italic;margin-left:20px;">$valspot</div>
+      <input id="image${nimg}_irect_spot" type="hidden" name="sunspot$nimg" value="$valspot">
+    </div>
   </td>
 </tr>
 C;
 
    //JAVASCRIPT CODE
-   $onload.="\nloadCanvas('image$nimg');\n";
+   $onload.="\nloadCanvas('image$nimg','$valmerc','$valspot');\n";
 }
-
+$calibrate.="<input type='hidden' name='nimg' value='$nimg'>";
 $samples.="</div>";
 
 //==============================
@@ -334,10 +417,14 @@ B;
 //==============================
 //SAVE & NEXT STEP BUTTONS
 //==============================
-$buttons=<<<BUT
-<div style="position:relative;float:right;top:0px;right0px;text-align:right;">
-<input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
+$nextbut=<<<BUT
+<div class="buttons">
 <input class="submit" type="submit" name="action" value="Next Step">
+</div>
+BUT;
+$savebut=<<<BUT
+<div class="buttons">
+<input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
 </div>
 BUT;
 
@@ -365,10 +452,17 @@ if($step>=3){
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 3. Image calibration</div>
-$buttons
-<table class="form">
+$nextbut$savebut
+<p>
+Use your mouse to draw a rectangle around Mercury. Once finished
+repeat the same procedure to indicate (optionally) the position
+of a sunspot visible in all the images.
+</p>
+<center>
+<table>
 $calibrate
 </table>
+</center>
 </div>
 B;
 }
@@ -377,11 +471,11 @@ if($step>=2){
 //==============================
 //IMAGE UPLOAD
 //==============================
-  if($step>2){$buttons="";}
+  if($step>2){$nextbut="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 2. Images upload</div>
-$buttons
+$nextbut$savebut
 <table class="form">
 <!-- -------------------- FIELD -------------------- -->
 <tr>
@@ -408,11 +502,11 @@ if($step>=1){
 //==============================
 //BASIC INFORMATION
 //==============================
-  if($step>1){$buttons="";}
+  if($step>1){$nextbut="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 1. Location information</div>
-$buttons
+$nextbut$savebut
 <table class="form">
 <!-- -------------------- FIELD -------------------- -->
 <tr>

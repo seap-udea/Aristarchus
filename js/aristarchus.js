@@ -96,11 +96,18 @@ function getPosition($element)
     return {xoff:xoff,yoff:yoff};
 }
 
-function loadCanvas(element)
+function loadCanvas(element,mercury,sunspot)
 {
     //Set size of image
     var $element=$('#'+element);
-    var $info=$('#'+element+"_info");
+
+    var $merc=$('#'+element+"_rect");
+    var $spot=$('#'+element+"_rect_spot");
+    var $imerc=$('#'+element+"_irect");
+    var $ispot=$('#'+element+"_irect_spot");
+
+    var $targ,$itarg;
+
     var domelement=document.getElementById(element);
     
     //Get Canvas Object
@@ -113,22 +120,41 @@ function loadCanvas(element)
     c.clearRect(0,0,w,h);
     c.drawImage(img,0,0,w,h);
 
-    var xoff,yoff;
-    window.setTimeout(function(){
-	var off=getPosition($element);
-	xoff=off.xoff;
-	yoff=off.yoff;
-	$info.html(xoff+","+yoff);
-    },1000);
+    //If mercury
+    var mercuryxy;
+    if(mercury.indexOf(',')!=-1){
+	mxy=mercury.split(",");
+	c.beginPath()
+	c.strokeStyle="blue";
+	c.rect(mxy[0],mxy[1],mxy[2]-mxy[0],mxy[3]-mxy[1]);
+	c.stroke();
+    }
+    //If spot
+    var sunspotxy;
+    if(sunspot.indexOf(',')!=-1){
+	mxy=sunspot.split(",");
+	c.beginPath()
+	c.strokeStyle="red";
+	c.rect(mxy[0],mxy[1],mxy[2]-mxy[0],mxy[3]-mxy[1]);
+	c.stroke();
+    }
 
+    var xoff,yoff;
+    var off=getPosition($element.parent());
+    xoff=off.xoff;
+    yoff=off.yoff;
+    //$info.html(xoff+","+yoff);
+    
     //Start drawing
     var xini=0,yini=0;
     var xend=0,yend=0;
     var startrect=0;
+    var merc=1;
+    var spot=0;
     function startDrawing(e){
-	var x=e.pageX-window.scrollX;
-	var y=e.pageY-window.scrollY;
-	$info.html(x+","+y);
+	var x=e.pageX;
+	var y=e.pageY;
+	//$info.html(x+","+y);
 	xini=parseInt(x-xoff);
 	yini=parseInt(y-yoff);
 	domelement.style.cursor="crosshair";
@@ -137,26 +163,38 @@ function loadCanvas(element)
 	c.drawImage(img,0,0,w,h);
     }
     function stopDrawing(e){
-	var x=e.pageX-window.scrollX;
-	var y=e.pageY-window.scrollY;
+	var x=e.pageX;
+	var y=e.pageY;
 	xend=parseInt(x-xoff);
 	yend=parseInt(y-yoff);
 	domelement.style.cursor="default";
+	
+	if(merc){$targ=$merc;$itarg=$imerc;}
+	if(spot){$targ=$spot;$itarg=$ispot;}
+	
+	$targ.html(xini+","+yini+","+xend+","+yend);
+	$itarg.val(xini+","+yini+","+xend+","+yend);
+
+	merc=merc?0:1;
+	spot=merc?0:1;
+
 	startrect=0;
 	xini=0;xend=0;
 	yini=0;yend=0;
     }
     function mouseMove(e){
-	var x=e.pageX-window.scrollX;
-	var y=e.pageY-window.scrollY;
+	var x=e.pageX;
+	var y=e.pageY;
+	var color='blue';
 	xend=parseInt(x-xoff);
 	yend=parseInt(y-yoff);
 	if(startrect){
 	    c.clearRect(0,0,w,h);
 	    c.beginPath();
-	    c.strokeStyle="black";
+	    if(spot) color='red'
+	    c.strokeStyle=color;
 	    c.setLineDash([5]);
-	    $info.html(xini+","+yini+"->"+xend+","+yend);
+	    //$info.html(xini+","+yini+"->"+xend+","+yend);
 	    c.rect(xini,yini,xend-xini,yend-yini);
 	    c.drawImage(img,0,0,w,h);
 	    c.stroke();
@@ -165,27 +203,4 @@ function loadCanvas(element)
     $element.mousedown(startDrawing);
     $element.mouseup(stopDrawing);
     $element.mousemove(mouseMove);
-    
-    /*
-
-    //
-
-    var xini,yini;
-    var xend,yend;
-    function startHandler(e){
-	xini=e.pageX;
-	yini=e.pageY;
-    }
-    function endHandler(e){
-	xend=e.pageX;
-	yend=e.pageY;
-    }
-    function show(e){
-	alert(xini+","+yini+","+xend+","+yend);
-    }
-    //$element.on("touchstart",startHandler);
-    $element.click(startHandler);
-    $element.onmousemove=endHandler;
-    $element.ondblclick=show;
-    */
 }
