@@ -521,6 +521,7 @@ $header=<<<H
 <script src="lib/jquery-ui/jquery-ui.min.js"></script>
 <script src="lib/jquery-ui/moment.min-locales.js"></script>
 <script src="js/aristarchus.js"></script>
+
 H;
  return $header;
 }
@@ -803,6 +804,26 @@ $text=<<<T
 T;
  $news=fadingBox($text,"background-color:lightblue",false);
  return $news;
+}
+
+function listImages($obsid)
+{
+  $obsdir="data/Aristarco6/$obsid";
+  $imgs=rtrim(shell_exec("ls -m $obsdir/*-image_*.*"));
+  $fimages=preg_split("/\s*,\s*/",$imgs);
+  $numimgs=0;
+  $images=[];
+  foreach($fimages as $img){
+    if(preg_match("/\.php/",$img) or
+       isBlank($img)){continue;}
+    $numimgs++;
+    $imgname=rtrim(shell_exec("basename $img"));
+    preg_match("/([^\.]+)\.(\w+)$/",$imgname,$matches);
+    $fname=$matches[1];
+    $ext=$matches[2];
+    array_push($images,"$fname.$ext");
+  }
+  return $images;
 }
 
 //////////////////////////////////////////////////////////

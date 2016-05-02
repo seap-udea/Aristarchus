@@ -1,7 +1,3 @@
-$(document).ready(function(){
-    //None
-});
-
 // Closure
 (function() {
     /**
@@ -82,4 +78,114 @@ function ajaxDo(action,params,onsuc,onerr)
 	success:onsuc,
 	error:onerr,
     });
+}
+
+function drawInit(elementId) {
+    var canvas=document.getElementById(elementId);
+    var ctx=canvas.getContext('2d');
+    canvas={ctx:ctx,w:canvas.width,h:canvas.height};
+    ctx.save();
+    return canvas;
+}
+
+function getPosition($element)
+{
+    var off=$element.offset();
+    var xoff=off.left;
+    var yoff=off.top;
+    return {xoff:xoff,yoff:yoff};
+}
+
+function loadCanvas(element)
+{
+    //Set size of image
+    var $element=$('#'+element);
+    var $info=$('#'+element+"_info");
+    var domelement=document.getElementById(element);
+    
+    //Get Canvas Object
+    canvas=drawInit(element);
+    var c=canvas.ctx,w=canvas.w,h=canvas.h;
+
+    //Draw image
+    var img=new Image();
+    img.src=$element.attr('value');
+    c.clearRect(0,0,w,h);
+    c.drawImage(img,0,0,w,h);
+
+    var xoff,yoff;
+    window.setTimeout(function(){
+	var off=getPosition($element);
+	xoff=off.xoff;
+	yoff=off.yoff;
+	$info.html(xoff+","+yoff);
+    },1000);
+
+    //Start drawing
+    var xini=0,yini=0;
+    var xend=0,yend=0;
+    var startrect=0;
+    function startDrawing(e){
+	var x=e.pageX-window.scrollX;
+	var y=e.pageY-window.scrollY;
+	$info.html(x+","+y);
+	xini=parseInt(x-xoff);
+	yini=parseInt(y-yoff);
+	domelement.style.cursor="crosshair";
+	startrect=1;
+	c.clearRect(0,0,w,h);
+	c.drawImage(img,0,0,w,h);
+    }
+    function stopDrawing(e){
+	var x=e.pageX-window.scrollX;
+	var y=e.pageY-window.scrollY;
+	xend=parseInt(x-xoff);
+	yend=parseInt(y-yoff);
+	domelement.style.cursor="default";
+	startrect=0;
+	xini=0;xend=0;
+	yini=0;yend=0;
+    }
+    function mouseMove(e){
+	var x=e.pageX-window.scrollX;
+	var y=e.pageY-window.scrollY;
+	xend=parseInt(x-xoff);
+	yend=parseInt(y-yoff);
+	if(startrect){
+	    c.clearRect(0,0,w,h);
+	    c.beginPath();
+	    c.strokeStyle="black";
+	    c.setLineDash([5]);
+	    $info.html(xini+","+yini+"->"+xend+","+yend);
+	    c.rect(xini,yini,xend-xini,yend-yini);
+	    c.drawImage(img,0,0,w,h);
+	    c.stroke();
+	}
+    }
+    $element.mousedown(startDrawing);
+    $element.mouseup(stopDrawing);
+    $element.mousemove(mouseMove);
+    
+    /*
+
+    //
+
+    var xini,yini;
+    var xend,yend;
+    function startHandler(e){
+	xini=e.pageX;
+	yini=e.pageY;
+    }
+    function endHandler(e){
+	xend=e.pageX;
+	yend=e.pageY;
+    }
+    function show(e){
+	alert(xini+","+yini+","+xend+","+yend);
+    }
+    //$element.on("touchstart",startHandler);
+    $element.click(startHandler);
+    $element.onmousemove=endHandler;
+    $element.ondblclick=show;
+    */
 }

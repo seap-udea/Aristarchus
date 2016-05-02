@@ -12,45 +12,24 @@ $body="";
 //////////////////////////////////////////////////////////
 //INITIALIZATION
 //////////////////////////////////////////////////////////
+//HEADER, HEAD AND MAINMENU
 $headers=getHeaders();
 $head=getHead();
 $mainmenu=getMainMenu();
-$headers.="\n<script>\n$(document).ready(function(){\n";
+$onload="";
+
+//ON DOCUMENT READY
+$onload.="\n<script>\n$(window).load(function(){\n";
+
+//OBSERVATION ID
 if(!isset($obsid)){$obsid=generateRandomString(6);}
 $obsdir="data/Aristarco6/$obsid";
 
-//==============================
-//UPLOADED IMAGES
-//==============================
-$upimages="";
-$upimages.="<p>Uploaded images:</p>";
-$imgs=rtrim(shell_exec("ls -m $obsdir/*_image_*.*"));
-$fimages=preg_split("/\s*,\s*/",$imgs);
-$numimgs=0;
-$upimages.="<div class='table' style='text-align:center'>";
-$images="";
-$times="";
-foreach($fimages as $img){
-  if(preg_match("/\.php/",$img)){continue;}
-  if(isBlank($img)){continue;}
-  $numimgs++;
-  $images.=rtrim(shell_exec("basename $img")).";";
-  include("$obsdir/${obsid}_image_${numimgs}.php");
-  $times.="$time;";
-$upimages.=<<<I
-<div class='cell'>
-<img class='sample' src='$img'/><br/>
-Image $numimgs<br/>
-Time: $time
-</div>
-I;
-}
-if(!$numimgs){$body.=$blankimg;}
-$upimages.="Times def:$times, Images def:$images<br/>";
-$upimages.="</div></div>";
+//SEARCH ALREADY UPLOADED IMAGES
+$obsimages=listImages($obsid);
 
 //////////////////////////////////////////////////////////
-//PAGE MENU OPTIONS
+//PAGE MENU
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
@@ -68,38 +47,54 @@ $title=<<<T
 T;
 $body.=$title;
 
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 //////////////////////////////////////////////////////////
-//CONTENT ACTIONS
+//ACTIONS
 //////////////////////////////////////////////////////////
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
 if(!isset($action)){}
+
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//SAVE
+//LOAD
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="load")
 {
   if($observation=mysqlCmd("select * from Aristarco6 where obsid='$obsid' and code='$code'")){
     foreach(array_keys($ARISTARCO6_FIELDS) as $field) $$field=$observation["$field"];
     statusMsg("Observation '$obsid' loaded");
-    $headers.="$('.helpbox').hide();";
+    $onload.="$('.helpbox').hide();";
   }else{
     errorMsg("Code provided not valid");
   }
 }
+
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SAVE
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Next Step" or $action=="Save")
 {
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  //REMOVE HELP BOXES
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  $headers.="$('.helpbox').hide();";
+  //=====================================
+  //PREPARE OBSERVATIONS DIRECTORY
+  //=====================================
+  shell_exec("mkdir -p $obsdir");
 
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  //=====================================
+  //REMOVE HELP BOXES
+  //=====================================
+  $onload.="$('.helpbox').hide();";
+
+  //=====================================
   //CHECK PROVIDED INFORMATION
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  //=====================================
   if($step>=1){
-    shell_exec("mkdir -p $obsdir");
+    //%%%%%%%%%%%%%%%%%%%%
+    //CHECK STEP1 OPTIONS
+    //%%%%%%%%%%%%%%%%%%%%
     $noblank=array("sitename",
 		   "latitude","longitude","timezone","altitude",
 		   "name","email","code");
@@ -109,9 +104,29 @@ else if($action=="Next Step" or $action=="Save")
 	goto endaction;
       }
     }
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE CALIBRATION IMAGE
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    $calfile=$_FILES["calimage"];
+    if($calfile["size"]>0){
+      $fname=$calfile["name"];
+      preg_match("/\.(\w+)$/",$fname,$matches);
+      $ext=$matches[1];
+      $filename="${obsid}-calibration.$ext";
+      statusMsg("Saving calibration image $fname as $filename...");
+      $tmp=$calfile["tmp_name"];
+      shell_exec("cp $tmp '$obsdir/$filename'");
+      $calimage=$filename;
+    }
+
   }
   if($step>=2){
-    if($numimgs==0){
+
+    //%%%%%%%%%%%%%%%%%%%%
+    //CHECK STEP2 OPTIONS
+    //%%%%%%%%%%%%%%%%%%%%
+    if(count($obsimages)==0){
       if($_FILES["image"]["size"]==0){
 	errorMsg("No image provided");
 	goto endaction;
@@ -121,38 +136,31 @@ else if($action=="Next Step" or $action=="Save")
 	goto endaction;
       }
     }
-  }
 
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  //SAVE CALIBRATION IMAGE
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  $calfile=$_FILES["calimage"];
-  if($calfile["size"]>0){
-    $fname=$calfile["name"];
-    preg_match("/\.(\w+)$/",$fname,$matches);
-    $ext=$matches[1];
-    $filename="${obsid}_calibration.$ext";
-    statusMsg("Saving calibration image $fname as $filename...");
-    $tmp=$calfile["tmp_name"];
-    shell_exec("cp $tmp '$obsdir/$filename'");
-    $calimage=$filename;
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IMAGE
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    $imgfile=$_FILES["image"];
+    if($imgfile["size"]>0){
+      $numimgs+=1;
+      $tmp=$imgfile["tmp_name"];
+      $fname=$imgfile["name"];
+      preg_match("/\.(\w+)$/",$fname,$matches);
+      $ext=$matches[1];
+      $timestr=preg_replace("/[:\s]/","-",$time);
+      $suffix="image_$timestr";
+      $filename="${obsid}-$suffix.$ext";
+      $filephp="${obsid}-$suffix.php";
+      statusMsg("Saving image $fname as $filename...");
+      shell_exec("cp $tmp '$obsdir/$filename'");
+      shell_exec("echo '\$time=\"$time\";' > '$obsdir/$filephp'");
+      $obsimages=listImages($obsid);
+    }
   }
-
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  //SAVE IMAGE
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  $imgfile=$_FILES["image"];
-  if($imgfile["size"]>0){
-    $numimgs+=1;
-    $tmp=$imgfile["tmp_name"];
-    $fname=$imgfile["name"];
-    preg_match("/\.(\w+)$/",$fname,$matches);
-    $ext=$matches[1];
-    $filename="${obsid}_image_$numimgs.$ext";
-    $filephp="${obsid}_image_$numimgs.php";
-    statusMsg("Saving image $numimgs $fname as $filename...");
-    shell_exec("cp $tmp '$obsdir/$filename'");
-    shell_exec("echo '\$time=\"$time\";' > '$obsdir/$filephp'");
+  if($step>=3){
+    //%%%%%%%%%%%%%%%%%%%%
+    //CHECK STEP3 OPTIONS
+    //%%%%%%%%%%%%%%%%%%%%
   }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -161,9 +169,13 @@ else if($action=="Next Step" or $action=="Save")
   if(!preg_match("/code$/",$code)){
     $code=md5($code)."code";
   }
-  $body.="Times:$times, Images:$images<br/>";
   insertSql("Aristarco6",$ARISTARCO6_FIELDS);
-  statusMsg("Observation '$obsid' saved.");
+
+  if($action=="Save"){
+    statusMsg("Observation '$obsid' saved.");
+  }else{
+    statusMsg("Next step of observation '$obsid'.");
+  }
 
   //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   //NEXT STEP 
@@ -182,18 +194,13 @@ else if($action=="Submit")
 }
 
 //////////////////////////////////////////////////////////
-//DOM ACTIONS
-//////////////////////////////////////////////////////////
-$headers.="});\n";
-$headers.="</script>";
-
-//////////////////////////////////////////////////////////
 //BODY
 //////////////////////////////////////////////////////////
 if(0){}
 else if($mode=="contacts"){
+
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//ACTIONS
+//CONTACTS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 $body.=<<<B
 <h3>Contact times calculator</h3>
@@ -218,43 +225,99 @@ frameborder=0
 </iframe>
 B;
 }else{
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//SUBMIT
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//PREPARE VARIABLES
+//IMAGE SUBMISSION
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+//==============================
+//PREPARE VARIABLES
+//==============================
+
+//BLANK IMAGE
+$blankimg=<<<IMG
+<div style="background-color:lightgray;width:200px;height:200px;padding:5px;">
+No image upload yet
+</div>
+IMG;
+
+//SET STEP
 if(!isset($step)){$step=1;}
 
-if(!isset($numimgs)){$numimgs=0;}
-
-if($out=shell_exec("ls $obsdir/${obsid}_calibration.*")){
+//CALIBRATION IMAGE
+$calimage=$blankimg;
+if($out=shell_exec("ls $obsdir/${obsid}-calibration.*")){
   $calimage=rtrim(shell_exec("basename $out"));
-$calimage_img=<<<C
+$calimage=<<<C
 <img class="sample" src=$out/>
-<input type="hidden" name="calimage" value="$calimage">
 C;
 }
 
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//SUBMIT
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//IMAGES SAMPLE AND CALIBRATION CODE
+$calibrate="";
+
+$samples=<<<I
+<h3>Upload images</h3>
+<div class='table' style='text-align:center'>
+I;
+
+$nimg=0;
+foreach($obsimages as $img){
+  $nimg++;
+
+  preg_match("/([^\.]+)\.\w+/",$img,$matches);
+  $fname=$matches[1];
+
+  //SAMPLES
+$samples.=<<<I
+<div style="float:left">
+<img class='sample' src='$obsdir/$img'/><br/>
+Image $fname<br/>
+</div>
+I;
+
+   //GET WIDTH AND HEIGHT OF IMAGE
+   $size=getimagesize("$ROOTDIR/$obsdir/$img");
+   $width=200.0;
+   $height=($width*$size[1])/$size[0];
+
+   //CALIBRATION CANVAS
+$calibrate.=<<<C
+<tr>
+  <td>
+    <canvas id="image$nimg" value="$obsdir/$img" style="border:solid black 2px" width="$width" height="$height">
+    </canvas>
+    <div id="image${nimg}_info">Info</div>
+  </td>
+  <td>
+    Calibrate
+  </td>
+</tr>
+C;
+
+   //JAVASCRIPT CODE
+   $onload.="\nloadCanvas('image$nimg');\n";
+}
+
+$samples.="</div>";
+
+//==============================
+//TITLE
+//==============================
 $body.=<<<B
 <h3>Submit your observations</h3>
 $FORM
 <input type="hidden" name="obsid" value="$obsid">
 <input type="hidden" name="step" value="$step">
-<input type="hidden" name="numimgs" value="$numimgs">
 
 B;
 
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
 //STATUS AND ERRORS
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
 if(!isBlank($STATUS)){
 $body.=<<<B
-<div class="box" style="background:lightblue;margin-top:10px;">
+<div class="box status">
 $STATUS
 </div>
 B;
@@ -262,15 +325,15 @@ B;
 
 if(!isBlank($ERRORS)){
 $body.=<<<B
-<div class="box" style="background:pink;margin-top:10px;">
+<div class="box error">
 $ERRORS
 </div>
 B;
 }
 
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//LOCATION
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
+//SAVE & NEXT STEP BUTTONS
+//==============================
 $buttons=<<<BUT
 <div style="position:relative;float:right;top:0px;right0px;text-align:right;">
 <input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
@@ -278,16 +341,14 @@ $buttons=<<<BUT
 </div>
 BUT;
 
-$blankimg=<<<IMG
-<div style="background-color:lightgray;width:200px;height:200px;padding:5px;">
-No image upload yet
-</div>
-IMG;
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//FORMS
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 if($step>=4){
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//SUBMIT
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
+//SUBMISSION BUTTON
+//==============================
 $body.=<<<B
 <div class="step">
 <div class="boxtitle" style="text-align:center;margin-top:10px;padding:20px;">
@@ -298,29 +359,25 @@ B;
 }
 
 if($step>=3){
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//IMAGE CALIBRATION
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
+//IMAGE CALLIBRATION
+//==============================
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 3. Image calibration</div>
 $buttons
 <table class="form">
-<tr>
-</tr>
+$calibrate
 </table>
-$blankimg
 </div>
 B;
 }
 
 if($step>=2){
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
 //IMAGE UPLOAD
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //==============================
-//SUBMISSION FORM
-//==============================
+  if($step>2){$buttons="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 2. Images upload</div>
@@ -342,32 +399,16 @@ $buttons
 </tr>
 <!-- -------------------- FIELD -------------------- -->
 </table>
-$upimages
+$samples
+</div>
 B;
 }
 
 if($step>=1){
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//==============================
 //BASIC INFORMATION
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //==============================
-//HELP
-//==============================
-$body.=<<<B
-<div class="box helpbox">
-Submitting your observations to the Aristarchus campaign is a three
-step process.
-<ul>
-<li>Step 1. Provide information about your location.</li>
-<li>Step 2. Upload your images.</li>
-<li>Step 3. Help us to callibrate images.</li>
-</ul>
-</div>
-B;
-
-//==============================
-//SUBMISSION FORM
-//==============================
+  if($step>1){$buttons="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 1. Location information</div>
@@ -416,7 +457,7 @@ $buttons
   <td class="field">Calibration image:</td>
   <td class="input">
     <input type="file" name="calimage">
-    $calimage_img
+    $calimage
   </td>
 </tr>
 <tr>
@@ -467,11 +508,15 @@ $buttons
 </div>
 B;
 }
-}
+
+}//End Main Body
 
 //////////////////////////////////////////////////////////
 //FOOTER
 //////////////////////////////////////////////////////////
+$onload.="});\n";
+$onload.="</script>";
+$body.=$onload;
 $messages=getMessages();
 $footer=getFooter();
 

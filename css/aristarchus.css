@@ -127,6 +127,15 @@ div.boxtitle{
     margin-bottom:10px;
     font-weight:bold;
 }
+div.status{
+    background:lightblue;
+    margin-top:10px;
+}
+div.error{
+    background:pink;
+    margin-top:10px;
+}
+
 /* ************************************************** */
 /* FORM */
 /* ************************************************** */
