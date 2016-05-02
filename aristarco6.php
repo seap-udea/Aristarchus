@@ -89,7 +89,7 @@ else if($action=="load")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Next Step" or $action=="Save")
 {
-  $body.=print_r($_POST,true);
+  //$body.=print_r($_POST,true);
 
   //=====================================
   //PREPARE OBSERVATIONS DIRECTORY
@@ -106,7 +106,6 @@ else if($action=="Next Step" or $action=="Save")
   //=====================================
   if(isset($nimg)){
     $obsimages=listImages($obsid);
-    $body.=print_r($obsimages,true);
     for($i=1;$i<=$nimg;$i++){
       $var="remove$i";
       if(isset($$var)){
@@ -119,6 +118,10 @@ else if($action=="Next Step" or $action=="Save")
     }
     $obsimages=listImages($obsid);
     $nimg=count($obsimages);
+    if($nimg==0){
+      $step=2;
+      mysqlCmd("update Aristarco6 set step='$step' where obsid='$obsid'");
+    }
   }
 
   //=====================================
@@ -152,7 +155,6 @@ else if($action=="Next Step" or $action=="Save")
       shell_exec("cp $tmp '$obsdir/$filename'");
       $calimage=$filename;
     }
-
   }
   if($step>=2){
 
@@ -381,6 +383,7 @@ C;
    //JAVASCRIPT CODE
    $onload.="\nloadCanvas('image$nimg','$valmerc','$valspot');\n";
 }
+if($nimg==0){$samples.="$blankimg";}
 $calibrate.="<input type='hidden' name='nimg' value='$nimg'>";
 $samples.="</div>";
 
