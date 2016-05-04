@@ -7,8 +7,8 @@ $HOST=$_SERVER["HTTP_HOST"];
 $SCRIPTNAME=$_SERVER["SCRIPT_FILENAME"];
 $ROOTDIR=rtrim(shell_exec("dirname $SCRIPTNAME"));
 require("$ROOTDIR/web/aristarchus.php");
-array2Globals($_SESSION);
 $body="";
+array2Globals($_SESSION);
 
 //////////////////////////////////////////////////////////
 //INITIALIZATION
@@ -79,6 +79,7 @@ else if($action=="load")
       preg_match("/([^\.]+)\.\w+/",$img,$matches);
       $fname=$matches[1];
       include("$obsdir/$fname.php");
+      $var="time$i";$$var=$time;
       $var="mercury$i";$$var=$mercury;
       $var="sunspot$i";$$var=$sunspot;
       $i++;
@@ -136,6 +137,100 @@ else if($action=="Next Step" or $action=="Save")
     //%%%%%%%%%%%%%%%%%%%%
     //CHECK STEP1 OPTIONS
     //%%%%%%%%%%%%%%%%%%%%
+    if(count($obsimages)==0){
+      if($_FILES["image"]["size"]==0){
+	errorMsg("No image provided");
+	goto endaction;
+      }
+    }
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IMAGE
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    $imgfile=$_FILES["image"];
+    //$body.=print_r($imgfile["size"],true);
+    if($imgfile["size"][0]>0){
+      $nfiles=count($imgfile["size"]);
+      for($i=0;$i<$nfiles;$i++){
+	$numimgs+=1;
+	$tmp=$imgfile["tmp_name"][$i];
+	$fname=$imgfile["name"][$i];
+	preg_match("/([^\.]+)\.(\w+)$/",$fname,$matches);
+	$bname=$matches[1];
+	$ext=$matches[2];
+	$suffix="image-".$bname;
+	$filename="${obsid}-$suffix.$ext";
+	$filephp="${obsid}-$suffix.php";
+	statusMsg("Saving image $fname as $filename...");
+	shell_exec("cp $tmp '$obsdir/$filename'");
+	shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-$suffix.exif");
+	shell_exec("touch '$obsdir/$filename.php'");
+      }
+      $obsimages=listImages($obsid);
+      $nimg=count($obsimages);
+    }
+
+    if($nimg<3 and $action=="Next Step"){
+      errorMsg("You must upload at least 3 images");
+      goto endaction;
+    }
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IMAGE METADATA
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    $ncimg=0;
+    for($i=1;$i<=$nimg;$i++){
+      $var="img$i";$val=$$var;
+      $fl=fopen("$obsdir/$val.php","w");
+      fwrite($fl,"<?php\n");
+
+      $var="time$i";$val=$$var;
+      if(isBlank($val)){
+	errorMsg("No time provided for image $i");
+	goto endaction;
+      }
+      fwrite($fl,"\$time='$val';\n");
+
+      $var="mercury${i}";$val=$$var;
+      if(isBlank($val)){
+	errorMsg("No Mercury region provided for image $i");
+	goto endaction;
+      }
+      if(preg_match("/,/",$val)){$ncimg++;}
+      fwrite($fl,"\$mercury='$val';\n");
+
+      $var="sunspot${i}";$val=$$var;
+      fwrite($fl,"\$sunspot='$val';\n");
+
+      $var="posmercury${i}";$val=$$var;
+      if(isBlank($val)){
+	errorMsg("No Mercury position provided for image $i");
+	goto endaction;
+      }
+      if(preg_match("/,/",$val)){$ncimg++;}
+      fwrite($fl,"\$posmercury='$val';\n");
+
+      $var="possunspot${i}";$val=$$var;
+      fwrite($fl,"\$possunspot='$val';\n");
+
+      fwrite($fl,"?>\n");
+      fclose($fl);
+    }
+    if($ncimg<3 and $action=="Next Step"){
+      errorMsg("$ncimg images have been calibrated");
+      goto endaction;
+    }
+  }
+
+  if($step>=2){
+    //%%%%%%%%%%%%%%%%%%%%
+    //CHECK STEP2 OPTIONS
+    //%%%%%%%%%%%%%%%%%%%%
+  }
+  if($step>=3){
+    //%%%%%%%%%%%%%%%%%%%%
+    //CHECK STEP3 OPTIONS
+    //%%%%%%%%%%%%%%%%%%%%
     $noblank=array("sitename",
 		   "latitude","longitude","timezone","altitude",
 		   "name","email","code");
@@ -162,113 +257,34 @@ else if($action=="Next Step" or $action=="Save")
       shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-calibration.exif");
       $calimage=$filename;
     }
-  }
-  if($step>=2){
 
-    //%%%%%%%%%%%%%%%%%%%%
-    //CHECK STEP2 OPTIONS
-    //%%%%%%%%%%%%%%%%%%%%
-    if(count($obsimages)==0){
-      if($_FILES["image"]["size"]==0){
-	errorMsg("No calibration image provided");
-	goto endaction;
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IN DATABASE
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    if(!preg_match("/code$/",$code)){
+      $code=md5($code)."code";
+    }
+    insertSql("Aristarco6",$ARISTARCO6_FIELDS);
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //SAVE IN USER DATABASE
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    if(!mysqlCmd("select * from Users where email='$email'")){
+      statusMsg("Creating new user");
+      insertSql("Users",$USERS_FIELDS);
+    }else{
+      statusMsg("Updating user information");
+      insertSql("Users",$USERS_FIELDS);
+    }
+    if(!isset($_SESSION["email"])){
+      session_start();
+      foreach($USERS_FIELDS as $key){
+	$_SESSION["$key"]=$$key;
       }
-      if(isBlank($time)){
-	errorMsg("No time provided");
-	goto endaction;
-      }
-    }
-
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //SAVE IMAGE
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    $imgfile=$_FILES["image"];
-    if($imgfile["size"]>0){
-      $numimgs+=1;
-      $tmp=$imgfile["tmp_name"];
-      $fname=$imgfile["name"];
-      preg_match("/\.(\w+)$/",$fname,$matches);
-      $ext=$matches[1];
-      $timestr=preg_replace("/[:\s]/","-",$time);
-      $suffix="image_$timestr";
-      $filename="${obsid}-$suffix.$ext";
-      $filephp="${obsid}-$suffix.php";
-      statusMsg("Saving image $fname as $filename...");
-      shell_exec("cp $tmp '$obsdir/$filename'");
-      shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-$suffix.exif");
-
-      $fl=fopen("$obsdir/$filephp","w");
-      fwrite($fl,"<?php\n");
-      fwrite($fl,"\$time='$time';\n");
-      fwrite($fl,"?>\n");
-      fclose($fl);
-
-      $obsimages=listImages($obsid);
-    }
-
-    if($nimg<3 and $action=="Next Step"){
-      errorMsg("You must upload at least 3 images");
-      goto endaction;
-    }
-  }
-  if($step>=3){
-    //%%%%%%%%%%%%%%%%%%%%
-    //CHECK STEP3 OPTIONS
-    //%%%%%%%%%%%%%%%%%%%%
-    
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //SAVE IMAGE INFORMATION
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    $ncimg=0;
-    for($i=1;$i<=$nimg;$i++){
-      $var="img$i";$val=$$var;
-      $fl=fopen("$obsdir/$val.php","w");
-      fwrite($fl,"<?php\n");
-
-      $var="time$i";$val=$$var;
-      fwrite($fl,"\$time='$val';\n");
-
-      $var="mercury${i}";$val=$$var;
-      if(preg_match("/,/",$val)){$ncimg++;}
-      fwrite($fl,"\$mercury='$val';\n");
-
-      $var="sunspot${i}";$val=$$var;
-      fwrite($fl,"\$sunspot='$val';\n");
-
-      fwrite($fl,"?>\n");
-      fclose($fl);
-    }
-    if($ncimg<3 and $action=="Next Step"){
-      errorMsg("$ncimg images have been calibrated");
-      goto endaction;
+      header("Refresh:0;url=aristarco6.php?action=load&obsid=$obsid&code=$code");
     }
   }
 
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  //SAVE IN DATABASE
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  if(!preg_match("/code$/",$code)){
-    $code=md5($code)."code";
-  }
-  insertSql("Aristarco6",$ARISTARCO6_FIELDS);
-
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  //SAVE IN USER DATABASE
-  //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  if(!mysqlCmd("select * from Users where email='$email'")){
-    statusMsg("Creating new user");
-    insertSql("Users",$USERS_FIELDS);
-  }else{
-    statusMsg("Updating user information");
-    insertSql("Users",$USERS_FIELDS);
-  }
-  if(!isset($_SESSION["email"])){
-    session_start();
-    foreach($USERS_FIELDS as $key){
-      $_SESSION["$key"]=$$key;
-    }
-    header("Refresh:0;url=aristarco6.php?action=load&obsid=$obsid&code=$code");
-  }
   if($action=="Save"){
     statusMsg("Observation '$obsid' saved.");
   }else{
@@ -465,7 +481,6 @@ B;
 //==============================
 //PREPARE VARIABLES
 //==============================
-
 //BLANK IMAGE
 $blankimg=<<<IMG
 <div style="background-color:lightgray;width:200px;height:200px;padding:5px;">
@@ -485,78 +500,124 @@ $calimage=<<<C
 C;
 }
 
-//IMAGES SAMPLE AND CALIBRATION CODE
-$calibrate="";
-
-$samples=<<<I
-<h3>Upload images</h3>
-<div class='table' style='text-align:center'>
-I;
+//==============================
+//PREPARE IMAGE EDITION TABLE
+//==============================
+$samples="";
+if($nimg>0){
+  $caption="Uploaded Images";
+}
+$samples.=<<<S
+<p></p>
+<table style="margin-left:10%;width:80%;" border="1px">
+<caption style="font-size:1.2em;margin-bottom:20px;">
+  $caption
+</caption>
+S;
 
 $nimg=0;
 foreach($obsimages as $img){
   $nimg++;
 
+  //GET FILENAME OF IMAGES
   preg_match("/([^\.]+)\.\w+/",$img,$matches);
   $fname=$matches[1];
 
+  //GET PROPERTIES OF FILE
+  $fsize=round(filesize("$obsdir/$img")/1024,2);
+
+  //INCLUDE PROPERTIES OF IMAGES
   include("$obsdir/$fname.php");
 
-  //SAMPLES
-$samples.=<<<I
-<div style="float:left">
-<input type="checkbox" name="remove$nimg" value="$img"> delete<br/>
-<img class='sample' src='$obsdir/$img'/><br/>
-Image $fname<br/>
-</div>
-I;
+  //GET WIDTH AND HEIGHT OF IMAGE
+  $size=getimagesize("$ROOTDIR/$obsdir/$img");
+  $width=400.0;
+  $height=($width*$size[1])/$size[0];
+  $swidth=100;
+  $sheight=($swidth*$size[1])/$size[0];
 
-   //GET WIDTH AND HEIGHT OF IMAGE
-   $size=getimagesize("$ROOTDIR/$obsdir/$img");
-   $width=400.0;
-   $height=($width*$size[1])/$size[0];
+  
+  //CALIBRATION CANVAS
+  $varmerc="mercury$nimg";
+  $varspot="sunspot$nimg";
+  $varposmerc="posmercury$nimg";
+  $varposspot="possunspot$nimg";
 
-   //CALIBRATION CANVAS
-   $varmerc="mercury$nimg";
-   $varspot="sunspot$nimg";
-   if(!isset($$varmerc)){$valmerc="Use your mouse";}
-   else{$valmerc=$$varmerc;}
-   if(!isset($$varspot)){$valspot="Use your mouse";}
-   else{$valspot=$$varspot;}
+  if(!isset($$varmerc)){$valmerc="Use your mouse";}
+  else{$valmerc=$$varmerc;}
 
-$calibrate.=<<<C
+  if(!isset($$varspot)){$valspot="Use your mouse";}
+  else{$valspot=$$varspot;}
+
+  if(!isset($$varposmerc)){$valposmerc="Use your mouse";}
+  else{$valposmerc=$$varposmerc;}
+
+  if(!isset($$varposspot)){$valposspot="Use your mouse";}
+  else{$valposspot=$$varposspot;}
+
+
+  $vartime="time$nimg";
+  $valtime=$$vartime;
+  
+$samples.=<<<C
 <tr>
   <td>
-    <canvas id="image$nimg" value="$obsdir/$img" style="border:solid black 2px" width="$width" height="$height">
+    <canvas id="image$nimg" value="$obsdir/$img" width="$width" height="$height">
     </canvas>
-    <div class="caption">$img</div>
-    <input type="hidden" name="img$nimg" value="$fname">
+    <div id="test">Test</div>
   </td>
-  <td valign="top">
-    <div>
-      <b>Time $nimg</b>: $time
-      <input type="hidden" name="time$nimg" value="$time">
-    </div>
-    <div>
-      <b>Mercury</b>:
-      <div id="image${nimg}_rect" style="font-style:italic;margin-left:20px;">$valmerc</div>
-      <input id="image${nimg}_irect" type="hidden" name="mercury$nimg" value="$valmerc">
-    </div>
-    <div>
-      <b>Sunspot</b>:
-      <div id="image${nimg}_rect_spot" style="font-style:italic;margin-left:20px;">$valspot</div>
-      <input id="image${nimg}_irect_spot" type="hidden" name="sunspot$nimg" value="$valspot">
-    </div>
+  <td valign="top" style="width:100%;padding-left:10px;">
+    <table style="font-size:0.8em">
+      <tr><td>
+	  <b>Image $nimg</b>
+      </td></tr>
+      <!-- NAME -->
+      <tr><td>
+	  File: <a href="$obsdir/$img" target="_blank">$img</a> ($fsize kB)
+	  <input type="hidden" name="img$nimg" value="$fname">
+      </td></tr>
+      <!-- EXIF -->
+      <tr><td>
+	  EXIF: <a href="$obsdir/$fname.exif" target="_blank">Download</a>
+      </td></tr>
+      <!-- TIME -->
+      <tr><td>
+	  <b>Local Time</b>: <input type="text" name="time$nimg" value="$valtime" placeholder="HH:MM:SS">
+      </td></tr>
+      <!-- MERCURY -->
+      <tr><td>
+	  <b>Mercury</b>:<br/>
+	  Region:
+	  <input id="image${nimg}_rect" type="text" name="mercury$nimg" value="$valmerc" readonly>
+	  <br/>
+	  Mercury Position: 
+	  <input id="image${nimg}_rect_pos" size=20 type="text" 
+		 name="posmercury$nimg" value="$valposmerc" readonly>
+      </td></tr>
+      <!-- SPOT -->
+      <tr><td>
+	  <b>Sunspot</b>:<br/>
+	  Region:
+	  <input id="image${nimg}_rect_spot" type="text" name="sunspot$nimg" value="$valspot" readonly>
+	  <br/>
+	  Sunspot Position: 
+	  <input id="image${nimg}_rect_spot_pos" size=20 type="text" 
+		 name="possunspot$nimg" value="$valposspot" readonly>
+      </td></tr>
+      <!-- DELETE -->
+      <tr><td>
+	  <input type="checkbox" name="remove$nimg" value="$img"> Delete image
+      </td></tr>
+    </table>
   </td>
 </tr>
 C;
 
    //JAVASCRIPT CODE
-   $onload.="\nloadCanvas('image$nimg','$valmerc','$valspot');\n";
+   $onload.="\nloadCanvas('image$nimg');\n";
 }
-if($nimg==0){$samples.="$blankimg";}
-$calibrate.="<input type='hidden' name='nimg' value='$nimg'>";
-$samples.="</div>";
+$samples.="<input type='hidden' name='nimg' value='$nimg'>";
+$samples.="</table>";
 
 //==============================
 //TITLE
@@ -601,6 +662,11 @@ $savebut=<<<BUT
 <input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
 </div>
 BUT;
+$alignbut=<<<BUT
+<div class="buttons">
+<input class="submit" type="submit" name="action" value="Align" style="margin-bottom:0.5em"><br/>
+</div>
+BUT;
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //FORMS
@@ -632,63 +698,9 @@ B;
 
 if($step>=3){
 //==============================
-//IMAGE CALLIBRATION
-//==============================
-  if($step>3){$nextbut="";}
-$body.=<<<B
-<div class="step">
-<div class="boxtitle">Step 3. Image calibration</div>
-$nextbut$savebut
-<p>
-Use your mouse to draw a rectangle around Mercury. Once finished
-repeat the same procedure to indicate (optionally) the position
-of a sunspot visible in all the images.
-</p>
-<center>
-<table>
-$calibrate
-</table>
-</center>
-</div>
-B;
-}
-
-if($step>=2){
-//==============================
-//IMAGE UPLOAD
-//==============================
-  if($step>2){$nextbut="";}
-$body.=<<<B
-<div class="step">
-<div class="boxtitle">Step 2. Images upload</div>
-$nextbut$savebut
-<table class="form">
-<!-- -------------------- FIELD -------------------- -->
-<tr>
-  <td class="field">Image to upload:</td><td class="input"><input type="file" name="image"></td>
-</tr>
-<tr>
-  <td class="help" colspan=2>Upload here your image</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
-<tr>
-  <td class="field">Local time:</td><td class="input"><input type="text" name="time" placeholder="eg. 10:10:20"></td>
-</tr>
-<tr>
-  <td class="help" colspan=2>Time of the observation</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
-</table>
-$samples
-</div>
-B;
-}
-
-if($step>=1){
-//==============================
 //BASIC INFORMATION
 //==============================
-  if($step>1){$nextbut="";}
+  if($step>3){$nextbut="";}
 $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 1. Location information</div>
@@ -796,6 +808,46 @@ $nextbut$savebut
 </tr>
 <!-- -------------------- FIELD -------------------- -->
 </table>
+</div>
+B;
+}
+
+if($step>=2){
+//==============================
+//IMAGE CALIBRATION
+//==============================
+  if($step>2){$nextbut="";}
+$body.=<<<B
+<div class="step">
+<div class="boxtitle">Step 2. Alignment verification</div>
+$nextbut$savebut$alignbut
+<p>
+Please verify.
+</p>
+</div>
+B;
+}
+
+if($step>=1){
+//==============================
+//IMAGE UPLOAD
+//==============================
+  if($step>1){$nextbut="";}
+$body.=<<<B
+<div class="step">
+<div class="boxtitle">Step 1. Images upload</div>
+$nextbut$savebut
+<table class="form">
+<!-- -------------------- FIELD -------------------- -->
+<tr>
+  <td class="field">Image to upload:</td><td class="input"><input type="file" name="image[]" multiple="multiple"></td>
+</tr>
+<tr>
+  <td class="help" colspan=2>Upload here your image</td>
+</tr>
+<!-- -------------------- FIELD -------------------- -->
+</table>
+$samples
 </div>
 B;
 }

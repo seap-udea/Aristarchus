@@ -74,7 +74,7 @@ function ajaxDo(action,params,onsuc,onerr)
     var ajax='ajax.php';
     
     jQuery.ajax({
-	url:'ajax.php?action='+action+'&params='+params,
+	url:'actions.php?action='+action+'&params='+params,
 	success:onsuc,
 	error:onerr,
     });
@@ -96,48 +96,104 @@ function getPosition($element)
     return {xoff:xoff,yoff:yoff};
 }
 
-function loadCanvas(element,mercury,sunspot)
+function subimg(canvas,subcanvas,imgsrc,position)
+{
+    var img=new Image();
+    img.src=imgsrc;
+    var iw=$('#'+canvas).width();
+    var ih=$('#'+canvas).height();
+    var canvas=drawInit(subcanvas);
+    var c=canvas.ctx,w=canvas.w,h=canvas.h;
+    var posx=0,posy=0,facx=1,facy=1;
+    if(position.indexOf(",")!=-1){
+	var pos=position.split(",");
+	posx=pos[0]*w/(1.0*iw);posy=pos[1]*h/(1.0*ih);
+	facx=(1.0*iw)/(pos[2]-pos[0]),facy=(1.0*ih)/(pos[3]-pos[1]);
+    }
+    alert(w/2+","+h/2+","+iw+","+ih+","+posx+","+posy+","+facx+","+facy);
+    img.onload=function(){
+	c.translate(posx,posy);
+	c.scale(facx,facy);
+	c.translate(-posx,-posy);
+	c.drawImage(img,0,0,w,h);
+    }
+}
+
+function renderImg(element,imgsrc)
+{
+    //Get image size
+    var img=new Image();
+    img.src=imgsrc;
+    
+    alert("Rendering "+img.src+" at "+element);
+
+    var width=img.naturalWidth;
+    var height=img.naturalHeight;
+
+    var $element=$('#'+element);
+    $element.attr("height",100);
+    $element.attr("width",(100.0*height)/width);
+
+    //Get Canvas Object
+    var canvas=drawInit(element);
+    var c=canvas.ctx,w=canvas.w,h=canvas.h;
+
+    img.onload=function(){
+	c.drawImage(img,0,0,w,h);
+    }
+}
+
+function loadCanvas(element)
 {
     //Set size of image
     var $element=$('#'+element);
 
     var $merc=$('#'+element+"_rect");
     var $spot=$('#'+element+"_rect_spot");
-    var $imerc=$('#'+element+"_irect");
-    var $ispot=$('#'+element+"_irect_spot");
+    var $posmerc=$('#'+element+"_rect_pos");
+    var $posspot=$('#'+element+"_rect_spot_pos");
 
-    var $targ,$itarg;
+    var $targ,$pos;
 
     var domelement=document.getElementById(element);
-    
+
     //Get Canvas Object
-    canvas=drawInit(element);
+    var canvas=drawInit(element);
     var c=canvas.ctx,w=canvas.w,h=canvas.h;
+
+    function rectangles(){
+	c.save();
+	c.setLineDash([0]);
+	var mercury=$merc.val();
+	var sunspot=$spot.val();
+	var mercuryxy;
+	if(mercury.indexOf(',')!=-1){
+	    mxy=mercury.split(",");
+	    c.beginPath()
+	    c.strokeStyle="blue";
+	    c.rect(mxy[0]*w,mxy[1]*h,(mxy[2]-mxy[0])*w,(mxy[3]-mxy[1])*h);
+	    c.stroke();
+	}
+	var sunspotxy;
+	if(sunspot.indexOf(',')!=-1){
+	    mxy=sunspot.split(",");
+	    c.beginPath()
+	    c.strokeStyle="red";
+	    c.rect(mxy[0]*w,mxy[1]*h,(mxy[2]-mxy[0])*w,(mxy[3]-mxy[1])*h);
+	    c.stroke();
+	}
+	c.restore();
+    }
 
     //Draw image
     var img=new Image();
-    img.src=$element.attr('value');
-    c.clearRect(0,0,w,h);
-    c.drawImage(img,0,0,w,h);
-
-    //If mercury
-    var mercuryxy;
-    if(mercury.indexOf(',')!=-1){
-	mxy=mercury.split(",");
-	c.beginPath()
-	c.strokeStyle="blue";
-	c.rect(mxy[0],mxy[1],mxy[2]-mxy[0],mxy[3]-mxy[1]);
-	c.stroke();
+    var imgsrc=$element.attr('value');
+    img.onload=function(){
+	c.drawImage(img,0,0,w,h);
+	rectangles();
     }
-    //If spot
-    var sunspotxy;
-    if(sunspot.indexOf(',')!=-1){
-	mxy=sunspot.split(",");
-	c.beginPath()
-	c.strokeStyle="red";
-	c.rect(mxy[0],mxy[1],mxy[2]-mxy[0],mxy[3]-mxy[1]);
-	c.stroke();
-    }
+    img.src=imgsrc;
+    ////subimg(element,element+"_sub_merc",imgsrc,$merc.val());
 
     var xoff,yoff;
     var off=getPosition($element.parent());
@@ -151,6 +207,8 @@ function loadCanvas(element,mercury,sunspot)
     var startrect=0;
     var merc=1;
     var spot=0;
+    var typeimg;
+
     function startDrawing(e){
 	var x=e.pageX;
 	var y=e.pageY;
@@ -169,11 +227,19 @@ function loadCanvas(element,mercury,sunspot)
 	yend=parseInt(y-yoff);
 	domelement.style.cursor="default";
 	
-	if(merc){$targ=$merc;$itarg=$imerc;}
-	if(spot){$targ=$spot;$itarg=$ispot;}
+	if(merc){
+	    $targ=$merc;typeimg="merc";
+	    $pos=$posmerc;
+	}
+	if(spot){
+	    $targ=$spot;typeimg="spot";
+	    $pos=$posspot;
+	}
 	
-	$targ.html(xini+","+yini+","+xend+","+yend);
-	$itarg.val(xini+","+yini+","+xend+","+yend);
+	$targ.val(Math.round10(xini/(1.0*w),-4)+","+
+		  Math.round10(yini/(1.0*h),-4)+","+
+		  Math.round10(xend/(1.0*w),-4)+","+
+		  Math.round10(yend/(1.0*h),-4));
 
 	merc=merc?0:1;
 	spot=merc?0:1;
@@ -181,6 +247,17 @@ function loadCanvas(element,mercury,sunspot)
 	startrect=0;
 	xini=0;xend=0;
 	yini=0;yend=0;
+
+	rectangles();
+
+	//Extract area
+	ajaxDo("locate","imgsrc:"+imgsrc+";coords:"+$targ.val(),
+	       function(result){
+		   $pos.val(result);
+	       },
+	       function(error){
+		   $('#test').html(error);
+	       });
     }
     function mouseMove(e){
 	var x=e.pageX;
@@ -200,6 +277,7 @@ function loadCanvas(element,mercury,sunspot)
 	    c.stroke();
 	}
     }
+
     $element.mousedown(startDrawing);
     $element.mouseup(stopDrawing);
     $element.mousemove(mouseMove);

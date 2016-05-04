@@ -1,3 +1,44 @@
+	renderImg(element+"_sub_"+typeimg,imgsrc+"-crop__"+typeimg+".png");
+
+
+
+	renderImg(element+"_sub_merc",imgsrc+"-crop__merc.png");
+	renderImg(element+"_sub_spot",imgsrc+"-crop__spot.png");
+
+
+	  <br/>
+	  <canvas id="image${nimg}_sub_merc" width="$swidth" height="$sheight" style="border:solid black 1px">
+	  </canvas>
+
+
+	  <br/>
+	  <canvas id="image${nimg}_sub_spot" width="$swidth" height="$sheight" style="border:solid black 1px">
+	  </canvas>
+
+
+
+
+	  <br/>
+	  <canvas id="image${nimg}_sub_merc" width="$swidth" height="$sheight" style="border:solid black 1px">
+	  </canvas>
+
+
+
+      $timestr=preg_replace("/[:\s]/","-",$time);
+      $suffix="image_$timestr";
+
+      $fl=fopen("$obsdir/$filephp","w");
+      fwrite($fl,"<?php\n");
+      fwrite($fl,"\$time='$time';\n");
+      fwrite($fl,"?>\n");
+      fclose($fl);
+
+      if(isBlank($time)){
+	errorMsg("No time provided");
+	goto endaction;
+      }
+
+
 <form id='aristarco6-form' method='post' enctype='multipart/form-data' accept-charset='utf-8'>
   <input type="file" id="file-select" name="photos[]" multiple/>
   <button type="submit" id="upload-button">Upload</button>

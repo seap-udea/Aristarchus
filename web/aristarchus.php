@@ -60,7 +60,7 @@ if(isset($_SERVER["HTTP_REFERER"])){
 }else{
   $REFERER=$SITEURL;
 }
-
+$PYTHONCMD="PYTHONPATH=. MPLCONFIGDIR=/tmp python";
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //INPUT VARIABLES
@@ -856,13 +856,14 @@ T;
 function listImages($obsid)
 {
   $obsdir="data/Aristarco6/$obsid";
-  $imgs=rtrim(shell_exec("ls -m $obsdir/*-image_*.*"));
+  $imgs=rtrim(shell_exec("ls -m $obsdir/$obsid-image-*.*"));
   $fimages=preg_split("/\s*,\s*/",$imgs);
   $numimgs=0;
   $images=[];
   foreach($fimages as $img){
     if(preg_match("/\.php/",$img) or
        preg_match("/\.exif/",$img) or
+       preg_match("/crop__/",$img) or
        isBlank($img)){continue;}
     $numimgs++;
     $imgname=rtrim(shell_exec("basename $img"));
