@@ -601,7 +601,7 @@ function getFooter()
 
 $footer=<<<M
 Latest update: $filetime - 
-Developed by <a class="inverted" href=mailto:jorge.zuluaga@udea.edu.co>Jorge I. Zuluaga</a> (C) 2016
+  Developed by <a class="inverted" href=mailto:jorge.zuluaga@udea.edu.co>Jorge I. Zuluaga</a>, Andrés Gómez, Luis Correa (C) 2016
 M;
  return $footer;
 }

@@ -188,9 +188,12 @@ function loadCanvas(element)
     //Draw image
     var img=new Image();
     var imgsrc=$element.attr('value');
+    var iw,ih;
     img.onload=function(){
 	c.drawImage(img,0,0,w,h);
 	rectangles();
+	iw=img.naturalWidth;
+	ih=img.naturalHeight;
     }
     img.src=imgsrc;
     ////subimg(element,element+"_sub_merc",imgsrc,$merc.val());
@@ -210,12 +213,17 @@ function loadCanvas(element)
     var typeimg;
 
     function startDrawing(e){
+	if(merc){
+	    domelement.style.cursor="crosshair";
+	}else{
+	    domelement.style.cursor="default";
+	}
 	var x=e.pageX;
 	var y=e.pageY;
 	//$info.html(x+","+y);
 	xini=parseInt(x-xoff);
 	yini=parseInt(y-yoff);
-	domelement.style.cursor="crosshair";
+	//domelement.style.cursor="pointer";
 	startrect=1;
 	c.clearRect(0,0,w,h);
 	c.drawImage(img,0,0,w,h);
@@ -225,7 +233,7 @@ function loadCanvas(element)
 	var y=e.pageY;
 	xend=parseInt(x-xoff);
 	yend=parseInt(y-yoff);
-	domelement.style.cursor="default";
+	//domelement.style.cursor="default";
 	
 	if(merc){
 	    $targ=$merc;typeimg="merc";
@@ -243,6 +251,11 @@ function loadCanvas(element)
 
 	merc=merc?0:1;
 	spot=merc?0:1;
+	if(merc){
+	    domelement.style.cursor="crosshair";
+	}else{
+	    domelement.style.cursor="default";
+	}
 
 	startrect=0;
 	xini=0;xend=0;
@@ -250,10 +263,23 @@ function loadCanvas(element)
 
 	rectangles();
 
+	var dh=h/10,dw=w/10
+
 	//Extract area
 	ajaxDo("locate","imgsrc:"+imgsrc+";coords:"+$targ.val(),
 	       function(result){
 		   $pos.val(result);
+		   pos=result.split(",");
+		   x=pos[0]/(1.0*iw)*w;
+		   y=pos[1]/(1.0*ih)*h;
+		   c.beginPath()
+		   c.strokeStyle='blue';
+		   c.setLineDash([0])
+		   c.moveTo(x,y-dh);
+		   c.lineTo(x,y+dh);
+		   c.moveTo(x-dw,y);
+		   c.lineTo(x+dw,y);
+		   c.stroke();
 	       },
 	       function(error){
 		   $('#test').html(error);
