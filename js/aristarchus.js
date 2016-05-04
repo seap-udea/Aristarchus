@@ -184,6 +184,22 @@ function loadCanvas(element)
 	}
 	c.restore();
     }
+    function crossHair(coords,iw,ih,color)
+    {
+	
+	var dh=h/50,dw=w/50
+	var pos=coords.split(",");
+	var x=pos[0]/(1.0*iw)*w;
+	var y=pos[1]/(1.0*ih)*h;
+	c.beginPath()
+	c.strokeStyle=color;
+	c.setLineDash([0])
+	c.moveTo(x,y-dh);
+	c.lineTo(x,y+dh);
+	c.moveTo(x-dw,y);
+	c.lineTo(x+dw,y);
+	c.stroke();
+    }
 
     //Draw image
     var img=new Image();
@@ -191,9 +207,11 @@ function loadCanvas(element)
     var iw,ih;
     img.onload=function(){
 	c.drawImage(img,0,0,w,h);
-	rectangles();
+	//rectangles();
 	iw=img.naturalWidth;
 	ih=img.naturalHeight;
+	crossHair($posmerc.val(),iw,ih,'blue');
+	crossHair($posspot.val(),iw,ih,'red');
     }
     img.src=imgsrc;
     ////subimg(element,element+"_sub_merc",imgsrc,$merc.val());
@@ -261,25 +279,18 @@ function loadCanvas(element)
 	xini=0;xend=0;
 	yini=0;yend=0;
 
-	rectangles();
-
-	var dh=h/10,dw=w/10
+	//rectangles();
+	if(merc){
+	    crossHair($posmerc.val(),iw,ih,'blue');
+	}else{
+	    crossHair($posspot.val(),iw,ih,'red');
+	}
 
 	//Extract area
 	ajaxDo("locate","imgsrc:"+imgsrc+";coords:"+$targ.val(),
 	       function(result){
 		   $pos.val(result);
-		   pos=result.split(",");
-		   x=pos[0]/(1.0*iw)*w;
-		   y=pos[1]/(1.0*ih)*h;
-		   c.beginPath()
-		   c.strokeStyle='blue';
-		   c.setLineDash([0])
-		   c.moveTo(x,y-dh);
-		   c.lineTo(x,y+dh);
-		   c.moveTo(x-dw,y);
-		   c.lineTo(x+dw,y);
-		   c.stroke();
+		   crossHair(result,iw,ih,merc?'red':'blue');
 	       },
 	       function(error){
 		   $('#test').html(error);

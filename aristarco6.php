@@ -564,7 +564,6 @@ $samples.=<<<C
   <td>
     <canvas id="image$nimg" value="$obsdir/$img" width="$width" height="$height">
     </canvas>
-    <div id="test">Test</div>
   </td>
   <td valign="top" style="width:100%;padding-left:10px;">
     <table style="font-size:0.8em">
