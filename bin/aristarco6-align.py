@@ -208,6 +208,7 @@ APs=np.array(APs)
 trios=it.combinations(ipos,3)
 dtmax=0
 for trio in trios:
+    print list(trio)
     timestrio=times[list(trio)]
     dtimes=timestrio[1:]-timestrio[:-1]
     dtmean=dtimes.mean()
@@ -215,8 +216,13 @@ for trio in trios:
         dtmax=dtmean
         triomax=list(trio)
 
+#triomax=list(trio)
+triomax=[0,1,2]
+#triomax=[0,1,3]
+#triomax=[0,2,3]
+#triomax=[1,2,3]
+
 print "Better trio for analysis (dtmean = %.3f): "%(dtmax),triomax
-triomax=list(trio)
 rms_sol=rms[triomax]
 times_sol=times[triomax]
 APs_sol=APs[triomax]
@@ -228,6 +234,7 @@ images_sol=[images[i] for i in triomax]
 irm_s=rms_sol.argsort()[::-1]
 
 print "Order by radii = ",irm_s
+
 rms_s=rms_sol[irm_s]
 times_s=times_sol[irm_s]
 APs_s=APs_sol[irm_s]
@@ -236,51 +243,18 @@ images_s=[images_sol[i] for i in irm_s]
 #############################################################
 #SEARCH SOLUTION
 #############################################################
-r0=rms_s[0]
-r1=rms_s[1]
-r2=rms_s[2]
+r0=rms_s[0];q0=0.0;t0=0.0
+r1=rms_s[1];q1=0.0;t1=times_s[1]-times_s[0]
+r2=rms_s[2];q2=0.0;t2=times_s[2]-times_s[0]
 
-i=0
-for q2 in np.linspace(1*DEG,180*DEG,50):
+params=dict(rs=[r0,r1,r2],ts=[t0,t1,t2],verbose=0)
 
-    print "Testing q2 = %.4f"%(q2*RAD)
+#q2=bisect(tRatioBisection,0.0*DEG,180*DEG,args=(params,))
+solution=minimize(tRatioMinimize,[45.0*DEG],args=(params,))
+q2=solution["x"]
 
-    # CALCULATE CONDITIONS FOR POSITION 2
-    t2=times_s[2]-times_s[0]
-    d2=np.sqrt(r0**2+r2**2-2*r0*r2*np.cos(q2))
-    q0=np.arcsin(np.sin(q2)*r1/d2)
-    print "t2 = %.5f, d2 = %.6f, q0 = %.4f, q2 = %.4f"%(t2,d2,q0*RAD,q2*RAD)
+f,q0,q1,q2,d1,d2=tRatio(q2,params)
+print "Solution: q0 = %.2f, q1= %.2f, q2 = %.2f"%(q0*RAD,q1*RAD,q2*RAD)
 
-    # CALCULATE CONDITION FOR POSITION 1
-    if q0==0:
-        t1=times_s[1]-times_s[0]
-        if t1<t2:
-            d1=r0-r1
-            q1=0.0
-        else:
-            d1=r0+r1
-            q1=np.pi
-    else:
-        t1=times_s[1]-times_s[0]
-        a=r1**2/np.sin(q0)**2
-        b=-2*r0*r1
-        c=(r0**2+r1**2-a)
-        cq1_1,cq1_2=quadraticEquation(a,b,c)
-        if cq1_1!=0 and cq1_2!=0:
-            q1_1=np.arccos(cq1_1)
-            q1_2=np.arccos(cq1_2)
-            if t1>t2:
-                q1=max(q1_1,q1_2,q2)
-            else:
-                q1=min(q1_1,q1_2,q2)
-            d1=np.sqrt(r0**2+r1**2-2*r0*r1*np.cos(q1))
-        else:
-            print "No solution."
-        print "t1 = %.5f, d1 = %.6f, q1 = %.4f"%(t1,d1,q1*RAD)
-
-    # COMPARE DISTANCES WITH TIMES
-    print "(d2/d1) = %.4f = (t2/t1) = %.4f? => f = %.4f "%(d2/d1,t2/t1,(d2/d1)-(t2/t1))
-
-    i+=1
-    #if i>10:break
-
+rmin=r0*np.sin(q0)
+print "Closest distance to center = ",rmin

@@ -10,7 +10,7 @@ import numpy as np
 from sys import argv,exit
 from os import system
 from scipy.misc import *
-from scipy.optimize import minimize
+from scipy.optimize import minimize,bisect
 import re
 import itertools as it
 
@@ -121,3 +121,102 @@ def quadraticEquation(a,b,c):
         x1=(-b+disc)/(2*a)
         x2=(-b-disc)/(2*a)
         return x1,x2
+
+def centralAngle(r0,q0,r):
+    # QUADRATIC EQUATION COEFFICIENTS
+    a=r**2/np.sin(q0)**2
+    b=-2*r0*r
+    c=(r0**2+r**2-a)
+    
+    # SOLUTION TO QUADRATIC EQUATION
+    cq1,cq2=quadraticEquation(a,b,c)
+    q1=np.arccos(cq1);q2=np.arccos(cq2)
+    
+    # SORTED OUTPUT
+    qmin=min(q1,q2)
+    qmax=max(q1,q2)
+    return qmin,qmax
+
+def tRatio(q2,params):
+
+    rs=params["rs"]
+    ts=params["ts"]
+    verbose=params["verbose"]
+
+    # RADII AND TIMES
+    r0,r1,r2=rs
+    t0,t1,t2=ts
+
+    # DIRECTION
+    direction=np.sign(t2)
+    if verbose:print "Direction = ",direction
+
+    if verbose:print "Testing q2 = %.4f"%(q2*RAD)
+
+    # CALCULATE CONDITIONS FOR POSITION 2
+    d2=np.sqrt(r0**2+r2**2-2*r0*r2*np.cos(q2))
+    if verbose:print "t2 = %.5f, d2 = %.6f, q2 = %.4f"%(t2,d2,q2*RAD)
+
+    # CALCULATE q0 FOR THIS CONFIGURATION
+    q0=np.arcsin(np.sin(q2)*r2/d2)
+    if verbose:print "q0 = %.4f"%(q0*RAD)
+
+    # CALCULATE CONDITION FOR POSITION 1
+    if q0==0:
+        #T1 HAPPENS BEFORE THAN T2
+        if direction*(t1-t2)<0:
+            d1=r0-r1
+            q1=0.0
+        else:
+            d1=r0+r1
+            q1=np.pi
+    else:
+        """
+        # VERIFICATION OF THE INVERSE:
+        # QUADRATIC EQUATION COEFFICIENTS
+        a=r2**2/np.sin(q0)**2
+        b=-2*r0*r2
+        c=(r0**2+r2**2-a)
+
+        # SOLUTION TO QUADRATIC EQUATION
+        cq2_1,cq2_2=quadraticEquation(a,b,c)
+        if verbose:print np.arccos(cq2_1)*RAD,np.arccos(cq2_2)*RAD
+        exit(0)
+        """
+
+        # QUADRATIC EQUATION COEFFICIENTS
+        a=r1**2/np.sin(q0)**2
+        b=-2*r0*r1
+        c=(r0**2+r1**2-a)
+
+        # SOLUTION TO QUADRATIC EQUATION
+        cq1_1,cq1_2=quadraticEquation(a,b,c)
+        q1_1=np.arccos(cq1_1);q1_2=np.arccos(cq1_2)
+
+        qmin=min(q1_1,q1_2)
+        qmax=max(q1_1,q1_2)
+
+        if direction*(t1-t2)<0:
+            q1=qmin
+        else:
+            q1=qmax
+
+        d1=np.sqrt(r0**2+r1**2-2*r0*r1*np.cos(q1))
+        if verbose:print "t1 = %.5f, d1 = %.6f, q1 = %.4f"%(t1,d1,q1*RAD)
+
+    f=(d2/d1)-(t2/t1)
+
+    # COMPARE DISTANCES WITH TIMES
+    if verbose:print "(d2/d1) = %.4f = (t2/t1) = %.4f ? => f = %.4f "%(d2/d1,t2/t1,f)
+    if verbose:raw_input()
+
+    return f,q0,q1,q2,d1,d2
+    
+def tRatioBisection(q2,params):
+    values=tRatio(q2,params)
+    return values[0]
+
+def tRatioMinimize(q2,params):
+    values=tRatio(q2,params)
+    return abs(values[0])
+
