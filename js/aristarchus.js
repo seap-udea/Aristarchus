@@ -319,3 +319,27 @@ function loadCanvas(element)
     $element.mouseup(stopDrawing);
     $element.mousemove(mouseMove);
 }
+
+function filesUpload()
+{
+    var $input=$('#inputfiles')
+    var names=[];
+    for (var i=0;i<$input.get(0).files.length;++i){
+        names.push($input.get(0).files[i].name);
+    }
+    $('#files').html(names.join());
+}
+
+function alignImages(obsdir,images,loading,target)
+{
+    var $target=$('#'+target);
+    var $loading=$('#'+loading);
+    ajaxDo("align","images:"+images+";obsdir:"+obsdir,
+	   function(result){
+	       $target.html(result);
+	       $loading.hide();
+	   },
+	   function(error){
+	       $target.html(error);
+	   });
+}

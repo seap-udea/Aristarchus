@@ -55,6 +55,20 @@ else if($action=="locate"){
   $cmd="$PYTHONCMD bin/aristarco6-locate.py $imgsrc $coords";
   $output=shell_exec($cmd);
 }
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//LOCATE
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+else if($action=="align"){
+  //PARAMETERS
+  $obsdir=$ps["obsdir"];
+  $images=$ps["images"];
+
+  //RUN PYTHON PROCEDURE
+  $cmd="$PYTHONCMD bin/aristarco6-align.py $obsdir $images";
+  $output=$cmd;
+  $output=shell_exec($cmd);
+  //sleep(1);
+}
 //////////////////////////////////////////////////////////
 //DEFAULT
 //////////////////////////////////////////////////////////

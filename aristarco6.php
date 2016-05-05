@@ -92,6 +92,16 @@ else if($action=="load")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SAVE
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+else if($action=="Align")
+{
+  statusMsg("Attempting alignment");
+  
+
+}
+
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//SAVE
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Next Step" or $action=="Save")
 {
   //$body.=print_r($_POST,true);
@@ -192,8 +202,8 @@ else if($action=="Next Step" or $action=="Save")
       fwrite($fl,"\$time='$val';\n");
 
       $var="mercury${i}";$val=$$var;
-      if(isBlank($val)){
-	errorMsg("No Mercury region provided for image $i");
+      if(!preg_match("/\d/",$val)){
+	errorMsg("No Mercury position provided for image $i");
 	goto endaction;
       }
       if(preg_match("/,/",$val)){$ncimg++;}
@@ -509,7 +519,7 @@ if($nimg>0){
 }
 $samples.=<<<S
 <p></p>
-<table style="margin-left:10%;width:80%;" border="1px">
+<table style="margin-left:5%;width:90%;" border="0px">
 <caption style="font-size:1.2em;margin-bottom:20px;">
   $caption
 </caption>
@@ -531,7 +541,7 @@ foreach($obsimages as $img){
 
   //GET WIDTH AND HEIGHT OF IMAGE
   $size=getimagesize("$ROOTDIR/$obsdir/$img");
-  $width=400.0;
+  $width=600.0;
   $height=($width*$size[1])/$size[0];
   $swidth=100;
   $sheight=($swidth*$size[1])/$size[0];
@@ -585,21 +595,15 @@ $samples.=<<<C
       </td></tr>
       <!-- MERCURY -->
       <tr><td>
-	  <b>Mercury</b>:<br/>
-	  Region:
-	  <input id="image${nimg}_rect" type="text" name="mercury$nimg" value="$valmerc" readonly>
-	  <br/>
-	  Mercury Position: 
+	  <b>Mercury position</b>:<br/>
+	  <input id="image${nimg}_rect" type="hidden" name="mercury$nimg" value="$valmerc" readonly>
 	  <input id="image${nimg}_rect_pos" size=20 type="text" 
 		 name="posmercury$nimg" value="$valposmerc" readonly>
       </td></tr>
       <!-- SPOT -->
       <tr><td>
-	  <b>Sunspot</b>:<br/>
-	  Region:
-	  <input id="image${nimg}_rect_spot" type="text" name="sunspot$nimg" value="$valspot" readonly>
-	  <br/>
-	  Sunspot Position: 
+	  <b>Sunspot position</b>:<br/>
+	  <input id="image${nimg}_rect_spot" type="hidden" name="sunspot$nimg" value="$valspot" readonly>
 	  <input id="image${nimg}_rect_spot_pos" size=20 type="text" 
 		 name="possunspot$nimg" value="$valposspot" readonly>
       </td></tr>
@@ -820,11 +824,20 @@ $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 2. Alignment verification</div>
 $nextbut$savebut$alignbut
-<p>
-Please verify.
+<center id="loading">
+  <div>
+    <img src="img/loading.gif"/>
+  </div>
+</center>
+<p id="results">
 </p>
 </div>
 B;
+ 
+  $alignimages=implode(",",$obsimages);
+  $onload.="\nalignImages('$obsdir','$alignimages','loading','results');\n";
+
+
 }
 
 if($step>=1){
@@ -836,16 +849,18 @@ $body.=<<<B
 <div class="step">
 <div class="boxtitle">Step 1. Images upload</div>
 $nextbut$savebut
-<table class="form">
-<!-- -------------------- FIELD -------------------- -->
-<tr>
-  <td class="field">Image to upload:</td><td class="input"><input type="file" name="image[]" multiple="multiple"></td>
-</tr>
-<tr>
-  <td class="help" colspan=2>Upload here your image</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
-</table>
+<center>
+  <div class="fileUpload">
+    <span>
+      Click or drag your images here to upload them<br/>
+      <img src="img/upload.png" width="100px"/>
+    </span>
+    <input id="inputfiles" type="file" 
+	   name="image[]" multiple="multiple" class="upload" onchange="filesUpload()"/>
+  </div>
+  <span id="files">
+  </span>
+</center>
 $samples
 </div>
 B;
