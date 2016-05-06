@@ -11,8 +11,11 @@ from sys import argv,exit
 from os import system
 from scipy.misc import *
 from scipy.optimize import minimize,bisect
+from scipy.stats import linregress
+from scipy import ndimage
 import re
 import itertools as it
+
 
 #############################################################
 # MACROS
@@ -220,3 +223,75 @@ def tRatioMinimize(q2,params):
     values=tRatio(q2,params)
     return abs(values[0])
 
+def tdSlope(ql,params):
+    
+    rs=params["rs"]
+    ts=params["ts"]
+    verbose=params["verbose"]
+
+    nimages=len(rs)
+    qs=np.zeros_like(rs)
+    ds=np.zeros_like(qs)
+
+    qs[-1]=ql
+    ds[-1]=np.sqrt(rs[0]**2+rs[-1]**2-2*rs[0]*rs[-1]*np.cos(qs[-1]))
+    qs[+0]=np.arcsin(np.sin(qs[-1])*rs[-1]/ds[-1])
+
+    direction=np.sign(ts[-1])
+    if verbose:print "\nDirection of images: ",direction
+    if verbose:print "\nInclination angle q0: ",qs[0]*RAD
+    if verbose:print "\nProperties of last point ql,dl: ",qs[-1]*RAD,ds[-1]
+
+    for i in xrange(1,nimages-1):
+
+        if verbose:print "\nPoint %d:"%i
+        if verbose:print "\t","ti = %.3f, ri = %.3f, ti-tl = %.3f"%(ts[i],rs[i],ts[i]-ts[-1])
+
+        # QUADRATIC COEFFICIENTS
+        a=rs[i]**2/np.sin(qs[0])**2
+        b=-2*rs[0]*rs[i]
+        c=(rs[0]**2+rs[i]**2-a)
+
+        # SOLUTION TO QUADRATIC EQUATION
+        c1,c2=quadraticEquation(a,b,c)
+        q1=np.arccos(c1)
+        q2=np.arccos(c2)
+        if verbose:print "\t","Solution: ",q1*RAD,q2*RAD
+
+        # CHOOSE A SOLUTION ACCORDING TO TIME
+        if direction*(ts[+i]-ts[-1])<0:qs[i]=q1
+        else:qs[i]=q2
+        if verbose:print "\t","Solution chosen: ",qs[i]*RAD
+
+        # CALCULATE DISTANCE TRAVERSED
+        ds[i]=np.sqrt(rs[0]**2+rs[i]**2-2*rs[0]*rs[i]*np.cos(qs[i]))
+        if verbose:print "\t","Distance: ",ds[i]
+
+    if verbose:print "\nSummary:"
+    if verbose:print "\t","Times:",ts
+    if verbose:print "\t","Angles:",qs*RAD
+    if verbose:print "\t","Distances:",ds
+
+    # FIT VALUES
+    it=ts.argsort()
+    ts_s=ts[it]
+    ds_s=ds[it]
+
+    # LINEAR REGRESSION
+    m,b,r,p,s=linregress(ts_s,ds_s)
+    logp=np.log10(p)
+    tms=np.linspace(0,ts_s[-1],100)
+    dms=m*tms+b
+    if verbose:print "\nLinear Regression:"
+    if verbose:print "\t","r = ",r
+    if verbose:print "\t","log(p) = ",logp
+
+    # IMPACT PARAMETER
+    B=rs[0]*np.sin(qs[0])
+    if verbose:print "\n","Impact parameter: ",B
+
+    return qs,ds,B,m,b,r,logp,s
+
+def tdSlopeMinimize(ql,params):
+    qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
+    return logp

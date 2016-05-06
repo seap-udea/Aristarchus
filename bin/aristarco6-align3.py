@@ -24,7 +24,6 @@ times=[]
 APs=[]
 rms=[]
 images=[]
-i=0
 for image in limages:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,7 +48,7 @@ for image in limages:
     w,h=Mono.shape
     X,Y=np.meshgrid(np.arange(h),np.arange(w))
     maxval=Mono.max()
-    print "\nImage %d: '%s', resolution %d x %d..."%(i,image,w,h)
+    print "Image '%s', resolution %d x %d..."%(image,w,h)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #GET BORDER OF THE SUN
@@ -81,10 +80,8 @@ for image in limages:
     print "\t","R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
     print "\t","Center = (%d,%d)"%(xcenter,ycenter)
 
-    """
     plt.figure(figsize=(8,8))
     plt.plot(rs[:,0],rs[:,1],'ro',ms=5,mec='none')
-    """
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #IF SOLAR DISK IS NOT COMPLETE FIND CENTER
@@ -183,19 +180,9 @@ for image in limages:
 
     #Cropped image
     Crop=Data[ymin:ymax,xmin:xmax,:]
-    images[i]["crop"]="%s/%s-crop-result.%s"%(obsdir,fname,ext)
-    plt.imsave(images[i]["crop"],Crop)
-    xcropcenter=xcenter-xmin
-    ycropcenter=ycenter-ymin
-
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #ROTATE IMAGE
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Rotated=ndimage.rotate(Crop,AP,mode='constant',reshape=False)
-    cond=Rotated[:,:,3]!=255
-    Rotated[cond,3]=255
-    images[i]["rotated"]="%s/%s-rotated-result.%s"%(obsdir,fname,ext)
-    plt.imsave(images[i]["rotated"],Rotated)
+    plt.imsave("%s/%s-crop.%s"%(obsdir,fname,ext),Crop)
+    cMono=Crop[:,:,0]
+    ch,cw=cMono.shape
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #SAVE PHP CONFIGURATION FILE
@@ -203,78 +190,71 @@ for image in limages:
     fp=open("%s/%s-align.php"%(obsdir,fname),"w")
     fp.write("""<?php
 $center='%d,%d';
-$cropceneter='%d,%d';
 $R='%.2f';
 $dR='%.2f';
 $tm='%.8f';
 $rm='%.5f';
 $AP='%.2f';
-?>"""%(xcenter,ycenter,xcropcenter,ycropcenter,R,dR,time,rm,AP))
+?>"""%(xcenter,ycenter,R,dR,time,rm,AP))
     fp.close()
-    i+=1
-
-exit(0)
 
 times=np.array(times)
 rms=np.array(rms)
 APs=np.array(APs)
 
 #############################################################
+#CHOOSE THE MOST CONVENIENT CONBINATION
+#############################################################
+trios=it.combinations(ipos,3)
+dtmax=0
+for trio in trios:
+    print list(trio)
+    timestrio=times[list(trio)]
+    dtimes=timestrio[1:]-timestrio[:-1]
+    dtmean=dtimes.mean()
+    if dtmean>=dtmax:
+        dtmax=dtmean
+        triomax=list(trio)
+
+#triomax=list(trio)
+triomax=[0,1,2]
+#triomax=[0,1,3]
+#triomax=[0,2,3]
+#triomax=[1,2,3]
+
+print "Better trio for analysis (dtmean = %.3f): "%(dtmax),triomax
+rms_sol=rms[triomax]
+times_sol=times[triomax]
+APs_sol=APs[triomax]
+images_sol=[images[i] for i in triomax]
+
+#############################################################
 #SORT IMAGES ACCORDING TO RADIUS
 #############################################################
-irm=rms.argsort()[::-1]
-rms_s=rms[irm]
-times_s=times[irm]
-APs_s=APs[irm]
-images_s=[images[i] for i in irm]
+irm_s=rms_sol.argsort()[::-1]
 
-print "\nPoint order:",irm
+print "Order by radii = ",irm_s
 
-rs=rms[irm]
-print "Radii:",rs
-
-ts=np.zeros(nimages)
-for i in xrange(1,nimages):ts[i]=times_s[i]-times_s[0]
-print "Times:",ts
+rms_s=rms_sol[irm_s]
+times_s=times_sol[irm_s]
+APs_s=APs_sol[irm_s]
+images_s=[images_sol[i] for i in irm_s]
 
 #############################################################
-#ROTATE IMAGES
+#SEARCH SOLUTION
 #############################################################
-for i in irm:
-    AP=APs[i]
-    image=images[i]
+r0=rms_s[0];q0=0.0;t0=0.0
+r1=rms_s[1];q1=0.0;t1=times_s[1]-times_s[0]
+r2=rms_s[2];q2=0.0;t2=times_s[2]-times_s[0]
 
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #LOAD CROP IMAGES
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    cData=imread("%s/%s-crop.%s"%(obsdir,image["name"],image["ext"]))
-    
-    break
+params=dict(rs=[r0,r1,r2],ts=[t0,t1,t2],verbose=0)
 
-#############################################################
-#SEARCH FOR A SOLUTION
-#############################################################
-params=dict(ts=ts,rs=rs,verbose=0)
-solution=minimize(tdSlopeMinimize,[45*DEG],args=(params,))
-ql=solution["x"]
-qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
+#q2=bisect(tRatioBisection,0.0*DEG,180*DEG,args=(params,))
+solution=minimize(tRatioMinimize,[45.0*DEG],args=(params,))
+q2=solution["x"]
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#PLOT SOLUTION
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-it=ts.argsort()
-ts_s=ts[it]
-ds_s=ds[it]
-tms=np.linspace(0,ts_s[-1],100)
-dms=m*tms+b
-fig=plt.figure()
-ax=fig.gca()
-ax.plot(ts,ds,"k+",ms=20)
-ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
+f,q0,q1,q2,d1,d2=tRatio(q2,params)
+print "Solution: q0 = %.2f, q1= %.2f, q2 = %.2f"%(q0*RAD,q1*RAD,q2*RAD)
 
-ax.grid()
-ax.legend(loc='best')
-ax.set_xlabel("Time from most external position (hours)")
-ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
-fig.savefig("%s/alignment-result.png"%obsdir)
-
+rmin=r0*np.sin(q0)
+print "Closest distance to center = ",rmin

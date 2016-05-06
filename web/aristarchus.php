@@ -863,7 +863,7 @@ function listImages($obsid)
   foreach($fimages as $img){
     if(preg_match("/\.php/",$img) or
        preg_match("/\.exif/",$img) or
-       preg_match("/crop__/",$img) or
+       preg_match("/-result\./",$img) or
        isBlank($img)){continue;}
     $numimgs++;
     $imgname=rtrim(shell_exec("basename $img"));
