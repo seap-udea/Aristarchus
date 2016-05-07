@@ -25,6 +25,7 @@ APs=[]
 rms=[]
 images=[]
 i=0
+minres=1e100
 for image in limages:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -146,6 +147,33 @@ for image in limages:
     #"""
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CROP IMAGE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dp=0
+    xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
+    ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
+
+    xmin=cropCoord(xmin,w)
+    ymin=cropCoord(ymin,h)
+    xmax=cropCoord(xmax,w)
+    ymax=cropCoord(ymax,h)
+    cw=xmax-xmin
+    ch=ymax-ymin
+
+    #Cropped image
+    Crop=Data[ymin:ymax,xmin:xmax,:]
+    images[i]["crop"]="%s/%s-crop-result.%s"%(obsdir,fname,ext)
+    plt.imsave(images[i]["crop"],Crop)
+    xcropcenter=roundFloat(xcenter-xmin)
+    ycropcenter=roundFloat(ycenter-ymin)
+
+    res=cw*ch
+    if res<minres:
+        hcommon=ch
+        wcommon=cw
+        minres=res
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #FIND MERCURY POSITION RESPECT TO CENTER
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ptime=config["time"].split(":")
@@ -169,33 +197,13 @@ for image in limages:
     APs+=[AP]
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #CROP IMAGE
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #"White" area
-    cond=Mono>=maxval/xthresmin
-    xs=X[cond]
-    ys=Y[cond]
-    
-    #Mean-Min-Max
-    xm=xs.mean();ym=ys.mean()
-    xmin=xs.min();xmax=xs.max()
-    ymin=ys.min();ymax=ys.max()
-
-    #Cropped image
-    Crop=Data[ymin:ymax,xmin:xmax,:]
-    images[i]["crop"]="%s/%s-crop-result.%s"%(obsdir,fname,ext)
-    plt.imsave(images[i]["crop"],Crop)
-    xcropcenter=xcenter-xmin
-    ycropcenter=ycenter-ymin
-
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #ROTATE IMAGE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Rotated=ndimage.rotate(Crop,AP,mode='constant',reshape=False)
+    Rotated=ndimage.rotate(Crop,AP,reshape=False)
     cond=Rotated[:,:,3]!=255
     Rotated[cond,3]=255
-    images[i]["rotated"]="%s/%s-rotated-result.%s"%(obsdir,fname,ext)
-    plt.imsave(images[i]["rotated"],Rotated)
+    rotated="%s/%s-rotated-result.%s"%(obsdir,fname,ext)
+    plt.imsave(rotated,Rotated)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #SAVE PHP CONFIGURATION FILE
@@ -213,8 +221,6 @@ $AP='%.2f';
     fp.close()
     i+=1
 
-exit(0)
-
 times=np.array(times)
 rms=np.array(rms)
 APs=np.array(APs)
@@ -226,7 +232,7 @@ irm=rms.argsort()[::-1]
 rms_s=rms[irm]
 times_s=times[irm]
 APs_s=APs[irm]
-images_s=[images[i] for i in irm]
+images=[images[i] for i in irm]
 
 print "\nPoint order:",irm
 
@@ -238,26 +244,13 @@ for i in xrange(1,nimages):ts[i]=times_s[i]-times_s[0]
 print "Times:",ts
 
 #############################################################
-#ROTATE IMAGES
-#############################################################
-for i in irm:
-    AP=APs[i]
-    image=images[i]
-
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #LOAD CROP IMAGES
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    cData=imread("%s/%s-crop.%s"%(obsdir,image["name"],image["ext"]))
-    
-    break
-
-#############################################################
 #SEARCH FOR A SOLUTION
 #############################################################
 params=dict(ts=ts,rs=rs,verbose=0)
 solution=minimize(tdSlopeMinimize,[45*DEG],args=(params,))
 ql=solution["x"]
 qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
+print "Angles: ",qs*RAD
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #PLOT SOLUTION
@@ -278,3 +271,60 @@ ax.set_xlabel("Time from most external position (hours)")
 ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
 fig.savefig("%s/alignment-result.png"%obsdir)
 
+#############################################################
+#ROTATE IMAGES
+#############################################################
+j=0
+for i in irm:
+    
+    # Get image information
+    image=images[i]
+    print "File: ",image["name"]
+
+    rotated="%s/%s-rotated-result.%s"%(obsdir,image["name"],image["ext"])
+    Rotated=imread(rotated)
+    final="%s/%s-final-result.%s"%(obsdir,image["name"],image["ext"])
+
+    # Adjusting to a common size
+    print "\t","Ajusting image to common resolution %sx%s"%(hcommon,wcommon)
+    Rotated=imresize(Rotated,(hcommon,wcommon))
+    plt.imsave(rotated,Rotated)
+
+    if j==0:
+        Alignment=Rotated
+        system("cp %s %s"%(rotated,final))
+        j+=1
+        continue
+
+    print "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rs[i],qs[i]*RAD)
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #LOAD ROTATED IMAGE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    Final=ndimage.rotate(Rotated,qs[i]*RAD,reshape=False)
+    cond=Final[:,:,3]!=255
+    Final[cond,3]=255
+    plt.imsave(final,Final)
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CALCULATE RESULTING IMAGE5
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    Alignment=np.minimum(Alignment,Final)
+    j+=1
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#FINAL ROTATION
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Alignment=ndimage.rotate(Alignment,qs[0]*RAD,reshape=False)
+cond=Alignment[:,:,3]!=255
+Alignment[cond,3]=255
+alignment="%s/image-alignment-result.%s"%(obsdir,image["ext"])
+plt.imsave(alignment,Alignment)
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#HTML
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+html="""
+<img src='%s/image-alignment-result.png'/>
+"""%(obsdir
+print html

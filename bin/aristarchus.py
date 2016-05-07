@@ -295,3 +295,11 @@ def tdSlope(ql,params):
 def tdSlopeMinimize(ql,params):
     qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
     return logp
+
+def cropCoord(x,w):
+    if x<0:return 0
+    elif x>w:return w
+    else:return x
+    
+def roundFloat(x):
+    return int(np.round(x))

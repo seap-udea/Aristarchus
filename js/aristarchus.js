@@ -261,7 +261,8 @@ function loadCanvas(element)
 	    $targ=$spot;typeimg="spot";
 	    $pos=$posspot;
 	}
-	
+
+	//alert(iw+","+ih+";"+w+","+h);
 	$targ.val(Math.round10(xini/(1.0*w),-4)+","+
 		  Math.round10(yini/(1.0*h),-4)+","+
 		  Math.round10(xend/(1.0*w),-4)+","+

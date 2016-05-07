@@ -153,6 +153,12 @@ else if($action=="Next Step" or $action=="Save")
 	goto endaction;
       }
     }
+    if(isBlank($email) or
+       !preg_match("/@/",$email) or
+       !preg_match("/\./",$email)){
+      errorMsg("You must provide a valid e-mail");
+      goto endaction;
+    }
 
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //SAVE IMAGE
@@ -515,7 +521,11 @@ C;
 //==============================
 $samples="";
 if($nimg>0){
-  $caption="Uploaded Images";
+$seltypea=generateSelection(array("auto"=>"Automatic","spot"=>"Sunspot"),
+			    "typealignment",$typealignment);
+$caption=<<<C
+<h3>Uploaded Images</h3>
+C;
 }
 $samples.=<<<S
 <p></p>
@@ -523,6 +533,12 @@ $samples.=<<<S
 <caption style="font-size:1.2em;margin-bottom:20px;">
   $caption
 </caption>
+<tr>
+  <td colspan=2 style="text-align:center;font-size:1.2em;padding:10px;">
+    E-mail me the results:
+    <input type="text" name="email" value="$email" size="30" placeholder="me@server.mail.com">
+  </td>
+</tr>
 S;
 
 $nimg=0;
@@ -595,14 +611,14 @@ $samples.=<<<C
       </td></tr>
       <!-- MERCURY -->
       <tr><td>
-	  <b>Mercury position</b>:<br/>
+	  <b>Mercury position and size (px)</b>:<br/>
 	  <input id="image${nimg}_rect" type="hidden" name="mercury$nimg" value="$valmerc" readonly>
 	  <input id="image${nimg}_rect_pos" size=20 type="text" 
 		 name="posmercury$nimg" value="$valposmerc" readonly>
       </td></tr>
       <!-- SPOT -->
       <tr><td>
-	  <b>Sunspot position</b>:<br/>
+	  <b>Sunspot position and size (px)</b>:<br/>
 	  <input id="image${nimg}_rect_spot" type="hidden" name="sunspot$nimg" value="$valspot" readonly>
 	  <input id="image${nimg}_rect_spot_pos" size=20 type="text" 
 		 name="possunspot$nimg" value="$valposspot" readonly>
@@ -619,8 +635,15 @@ C;
    //JAVASCRIPT CODE
    $onload.="\nloadCanvas('image$nimg');\n";
 }
-$samples.="<input type='hidden' name='nimg' value='$nimg'>";
-$samples.="</table>";
+$samples.=<<<T
+<tr>
+  <td colspan=2 style="text-align:center;font-size:1.2em;padding:10px;">
+    Type of alignment: $seltypea
+    <input type='hidden' name='nimg' value='$nimg'>
+  </td>
+</tr>
+</table>
+T;
 
 //==============================
 //TITLE
@@ -826,6 +849,7 @@ $body.=<<<B
 $nextbut$savebut$alignbut
 <center id="loading">
   <div>
+  <span style="font-size:1.5em">Aligning</span><br/>
     <img src="img/loading.gif"/>
   </div>
 </center>
