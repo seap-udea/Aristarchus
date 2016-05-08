@@ -454,7 +454,17 @@ C;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($mode=="submit"){
 
+$list=rtrim(shell_exec("ls -m img/aristarco6/Screenshots/*.png"));
+$files=preg_split("/\s*,\s*/",$list);
+
 $screenshots="";
+
+$i=1;
+foreach($files as $file){
+  if(isBlank($file)){continue;}
+  $screenshots.="<img src='$file' style='border:solid black 1px;margin:5px;width:80%;'/>\n";
+  $i+=1;
+}
 
 $body.=<<<B
 <div style="font-size:1.2em">
@@ -485,7 +495,9 @@ Clear skies for all!
 </p>
 </div>
 <h3>Submission tool screenshots</h3>
-$screenshots
+<center>
+    $screenshots
+</center>
 B;
 
 }
