@@ -10,6 +10,12 @@ require("$ROOTDIR/web/aristarchus.php");
 $body="";
 array2Globals($_SESSION);
 
+$IMGVARIABLES=array("time",
+		    "mercury","sunspot",
+		    "posmercury","possunspot",
+		    "center","cropcenter",
+		    "R","dR","tm","rm","AP");
+
 //////////////////////////////////////////////////////////
 //INITIALIZATION
 //////////////////////////////////////////////////////////
@@ -46,7 +52,7 @@ $mainmenu.=<<<M
 M;
 $title=<<<T
 <div class="pagetitle">
-Aristarchus 6: Transit of Mercury, May 9 2016
+Aristarchus Campaign 6: Transit of Mercury, May 9 2016
 </div>
 T;
 $body.=$title;
@@ -70,20 +76,33 @@ else if($action=="load")
 {
   if($observation=mysqlCmd("select * from Aristarco6 where obsid='$obsid' and code='$lcode'")){
     foreach(array_keys($ARISTARCO6_FIELDS) as $field) $$field=$observation["$field"];
-    statusMsg("Observation '$obsid' loaded");
+    //statusMsg("Observation '$obsid' loaded");
     $onload.="$('.helpbox').hide();";
-
+    
     //LOAD IMAGES INFORMATION
     $i=1;
     foreach($obsimages as $img){
-      preg_match("/([^\.]+)\.\w+/",$img,$matches);
-      $fname=$matches[1];
+
+      $fp=fileProperties($img);
+      $fname=$fp["fname"];
+
       include("$obsdir/$fname.php");
-      $var="time$i";$$var=$time;
-      $var="mercury$i";$$var=$mercury;
-      $var="sunspot$i";$$var=$sunspot;
+
+      if(file_exists("$obsdir/$fname-align.php")){
+	include("$obsdir/$fname-align.php");
+      }
+
+      foreach($IMGVARIABLES as $var){
+	$vari="$var$i";
+	if(isset($$var)){
+	  $$vari=$$var;
+	}else{
+	  $$vari='0';
+	}
+      }
       $i++;
     }
+
   }else{
     errorMsg("Code provided not valid");
   }
@@ -94,40 +113,29 @@ else if($action=="load")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($action=="Align")
 {
-  statusMsg("Attempting alignment");
-  
-
+  statusMsg("Attempting alignment of observation '$obsid'...");
 }
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SAVE
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($action=="Next Step" or $action=="Save")
+else if($action=="Save" or $action=="Next Step")
 {
-  //$body.=print_r($_POST,true);
-  //$body.="STEP:$step<br/>";
-
   //=====================================
   //PREPARE OBSERVATIONS DIRECTORY
   //=====================================
   shell_exec("mkdir -p $obsdir");
 
   //=====================================
-  //REMOVE HELP BOXES
-  //=====================================
-  $onload.="$('.helpbox').hide();";
-
-  //=====================================
   //REMOVE IMAGES
   //=====================================
-  if(isset($nimg) and $nimg>0){
-    $obsimages=listImages($obsid);
+  if($nimg>0){
     for($i=1;$i<=$nimg;$i++){
       $var="remove$i";
       if(isset($$var)){
 	$val=$$var;
-	preg_match("/([^\.]+)\.\w+/",$val,$matches);
-	$fname=$matches[1];
+	$fp=fileProperties($val);
+	$fname=$fp["fname"];
 	statusMsg("Deleting image $fname...");
 	shell_exec("rm $obsdir/$fname*.*");
       }
@@ -135,7 +143,7 @@ else if($action=="Next Step" or $action=="Save")
     $obsimages=listImages($obsid);
     $nimg=count($obsimages);
     if($nimg==0){
-      $step=2;
+      $step=1;
       mysqlCmd("update Aristarco6 set step='$step' where obsid='$obsid'");
     }
   }
@@ -147,46 +155,41 @@ else if($action=="Next Step" or $action=="Save")
     //%%%%%%%%%%%%%%%%%%%%
     //CHECK STEP1 OPTIONS
     //%%%%%%%%%%%%%%%%%%%%
-    if(count($obsimages)==0){
-      if($_FILES["image"]["size"]==0){
+
+    if($nimg==0){
+      if($_FILES["image"]["size"][0]==0){
 	errorMsg("No image provided");
 	goto endaction;
       }
-    }
-    if(isBlank($email) or
-       !preg_match("/@/",$email) or
-       !preg_match("/\./",$email)){
-      errorMsg("You must provide a valid e-mail");
-      goto endaction;
     }
 
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //SAVE IMAGE
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     $imgfile=$_FILES["image"];
-    //$body.=print_r($imgfile["size"],true);
     if($imgfile["size"][0]>0){
       $nfiles=count($imgfile["size"]);
       for($i=0;$i<$nfiles;$i++){
 	$numimgs+=1;
 	$tmp=$imgfile["tmp_name"][$i];
 	$fname=$imgfile["name"][$i];
-	preg_match("/([^\.]+)\.(\w+)$/",$fname,$matches);
-	$bname=$matches[1];
-	$ext=$matches[2];
-	$suffix="image-".$bname;
+	$fp=fileProperties($fname);
+	$bname=$fp["fname"];
+	$ext=$fp["ext"];
+	$imgid=generateRandomString(3);
+	$suffix="image-$imgid-$bname";
 	$filename="${obsid}-$suffix.$ext";
 	$filephp="${obsid}-$suffix.php";
 	statusMsg("Saving image $fname as $filename...");
 	shell_exec("cp $tmp '$obsdir/$filename'");
 	shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-$suffix.exif");
-	shell_exec("touch '$obsdir/$filename.php'");
+	shell_exec("echo > '$obsdir/$filephp'");
       }
       $obsimages=listImages($obsid);
       $nimg=count($obsimages);
     }
 
-    if($nimg<3 and $action=="Next Step"){
+    if($nimg<2 and $action=="Next Step"){
       errorMsg("You must upload at least 3 images");
       goto endaction;
     }
@@ -196,7 +199,10 @@ else if($action=="Next Step" or $action=="Save")
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     $ncimg=0;
     for($i=1;$i<=$nimg;$i++){
+
       $var="img$i";$val=$$var;
+      if(isBlank($val)) continue;
+
       $fl=fopen("$obsdir/$val.php","w");
       fwrite($fl,"<?php\n");
 
@@ -232,16 +238,34 @@ else if($action=="Next Step" or $action=="Save")
       fwrite($fl,"?>\n");
       fclose($fl);
     }
-    if($ncimg<3 and $action=="Next Step"){
-      errorMsg("$ncimg images have been calibrated");
-      goto endaction;
-    }
   }
 
   if($step>=2){
     //%%%%%%%%%%%%%%%%%%%%
     //CHECK STEP2 OPTIONS
     //%%%%%%%%%%%%%%%%%%%%
+    $i=1;
+    foreach($obsimages as $img){
+
+      $fp=fileProperties($img);
+      $fname=$fp["fname"];
+
+      include("$obsdir/$fname.php");
+
+      if(file_exists("$obsdir/$fname-align.php")){
+	include("$obsdir/$fname-align.php");
+      }
+
+      foreach($IMGVARIABLES as $var){
+	$vari="$var$i";
+	if(isset($$var)){
+	  $$vari=$$var;
+	}else{
+	  $$vari='0';
+	}
+      }
+      $i++;
+    }
   }
   if($step>=3){
     //%%%%%%%%%%%%%%%%%%%%
@@ -263,9 +287,9 @@ else if($action=="Next Step" or $action=="Save")
     $calfile=$_FILES["calimage"];
     if($calfile["size"]>0){
       $fname=$calfile["name"];
-      preg_match("/([^\.]+)\.(\w+)$/",$fname,$matches);
-      $bname=$matches[1];
-      $ext=$matches[2];
+      $fp=fileProperties($fname);
+      $bname=$fp["fname"];
+      $ext=$fp["ext"];
       $filename="${obsid}-calibration.$ext";
       statusMsg("Saving calibration image $fname as $filename...");
       $tmp=$calfile["tmp_name"];
@@ -427,18 +451,24 @@ frameborder=0
 B;
 }
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//CONTACTS
+//LIST
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 else if($mode=="list"){
 
+  
+  //==============================
+  //USER LIST
+  //==============================
+  if($QPERMISO){
+
 $body.=<<<B
 <h3>List of observations</h3>
+B;
+
+$body.=<<<B
 <p>This is the list of observation uploaded by $email</p>
 B;
 
-   //==============================
-   //LIST
-   //==============================
    if($dbout=mysqlCmd("select * from Aristarco6 where email='$email'",$qout=1)){
 
 $body.=<<<T
@@ -483,6 +513,11 @@ $body.=<<<T
 </center>
 T;
 
+  }
+
+  //==============================
+  //GLOBAL OBSERVATIONS
+  //==============================
 $body.=<<<B
 <h3>Global observations</h3>
 <p>This is the map of the observations submitted to date</p>
@@ -491,23 +526,186 @@ B;
 }else{
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//IMAGE SUBMISSION
+//MAIN FORM
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-//==============================
-//PREPARE VARIABLES
-//==============================
-//BLANK IMAGE
-$blankimg=<<<IMG
-<div style="background-color:lightgray;width:200px;height:200px;padding:5px;">
-No image upload yet
-</div>
-IMG;
-
 //SET STEP
 if(!isset($step)){$step=1;}
 
+//==============================
+//SAVE & NEXT STEP BUTTONS
+//==============================
+$nextbut=<<<BUT
+<div class="buttons">
+<input class="submit" type="submit" name="action" value="Next Step">
+</div>
+BUT;
+$savebut=<<<BUT
+<div class="buttons">
+<input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
+</div>
+BUT;
+$alignbut=<<<BUT
+<div class="buttons">
+<input class="submit" type="submit" name="action" value="Align" style="margin-bottom:0.5em"><br/>
+</div>
+BUT;
+
+//==============================
+//HELP TEXTS
+//==============================
+
+$helpsubmission=fadingBox("
+
+<p>
+Using this page you will be able to analyze a set of images of the
+transit of Mercury and obtain from them amazing information about
+Mercury and the Sun.  This is the aim of the Aristarchus Campaign.
+</p>
+
+<p>
+The analysis is a 3-step process.  In the <b>first step</b> you will be asked
+to upload your images. In order to simplify the analysis you will be
+also asked to identify Mercury and one sunspot (if visible) in all the
+images.  We will also ask you for the time when each image was taken.
+</p>
+
+<p>
+The <b>second step</b> is the analysis of the images.  We will study
+the uploaded images and will measure the Sun and Mercury.  Combining
+the information of all images we will attempt at aligning the images.
+As a result you will be able to see the path of Mercury across the
+solar disk.  With this information at hand we will provide you
+incredible information about the planet and its orbit.
+</p>
+
+<p>
+In the <b>Third step</b> you will be invited to submit your
+observation to the campaign.  For doing so we need just a couple of
+additional information about the place and time when the pictures were
+taken.
+</p>
+
+<p>
+We will use this <b>colored boxes</b> to guide you through the
+process. You may close them using the 'X' in the upper-right corner.
+Use the <input class='submit' type='submit' name='submit'
+value='Save'> button to save your changes or upload the images.  Once
+you complete the goal of each step press the <input class='submit'
+type='submit' name='submit' value='Next Step'> button to continue.
+</p>
+
+","font-size:1.2em;");
+ 
+ $helpinfo=fadingBox("
+
+Now that you have uploaded more than 3 photos you seem ready for the
+<input class='submit' type='submit' name='action' value='Next Step'>.
+
+","text-align:left;font-size:1.2em;background:lightblue");
+ 
+ $helpupload.=fadingBox("
+
+Click the box below to select the images you want to
+upload. Alternatively you may also drag them into the box.  You may
+upload individual images of less than 50MB. If you select/drag several
+images the total size must not be larger than 50MB.
+
+","text-align:left;font-size:1.2em;background:lightblue");
+ 
+ $helplocate.=fadingBox("
+
+Use your mouse to select the region over the image(s) around Mercury.
+A <b>dashed blue rectangle</b> will appear when selecting Mercury.
+Repeat yo select the region where you see the largest sunspot.  A
+<b>dashed red rectangle</b> will be visible in that case.  If Mercury
+or the sunspot are succesfully identified a crosshair will mark the
+position of the objects. If the position is wrong, repeat the procedure.
+
+","text-align:left;font-size:1.2em;background:lightblue");
+
+ $helpalign.=fadingBox("
+
+You're ready to analyse your image set.  Before proceed we need to set
+several important parameters.  More importantly, and in order to keep
+track of who's behind this images and analysis, we kindly ask you to
+provide an e-mail and a <b>secret code</b>.  With this information you
+will be able to acccess and even modify your observations in the
+future (see login).
+
+","text-align:left;font-size:1.2em;background:lightblue");
+
+ $helpresults.=fadingBox("
+<p>
+Congratulations! below you will find the results of the analysising
+your images of the Mercury Transit.  If you find something suspicious
+or something bad, you can try to modify the information about the
+images (times, Mercury or sunspot position), or the parameters in the
+form below.
+</p>
+<p>
+Once ready, we invite you to submit your images and results to the
+Aristarchus Campaign by pressing <input class='submit' type='submit'
+name='action' value='Next Step'>.
+</p>
+","text-align:left;font-size:1.2em;background:lightblue");
+
+ $helparistarchus.=fadingBox("
+
+<p>
+Great! You have decided to submit your images to the Aristarchus
+Campaign. We really appreciate your interest!
+</p>
+
+<p>
+In order to proceed we just need the information below.
+</p>
+
+","text-align:left;font-size:1.2em;background:lightblue");
+
+
+//==============================
+//SET BLANK HELP TEXTS
+//==============================
+if($QPERMISO or
+   $nimg>0){
+  $helpsubmission="";
+}
+if($QPERMISO or
+   $nimg>0){
+  $helpupload="";
+}
+if($QPERMISO or
+   $nimg==0 or
+   $nimg>=3){
+  $helplocate="";
+}
+if($QPERMISO or
+   $nimg<3 or 
+   $step>1){
+  $helpinfo="";
+}
+if($QPERMISO or 
+    file_exists("$obsdir/output.log")){
+  $helpalign="";
+}
+if($QPERMISO or
+   $step>=3){
+  $helpresults="";
+ }
+if($QPERMISO or
+   $step>=3){
+  $helparistarchus="";
+}
+
+//==============================
 //CALIBRATION IMAGE
+//==============================
+//BLANK IMAGE
+$blankimg=<<<IMG
+<div style="background-color:lightgray;width:200px;height:200px;padding:10px;">
+No image upload yet
+</div>
+IMG;
 $calimage=$blankimg;
 if($out=shell_exec("ls $obsdir/${obsid}-calibration.*")){
   $calimage=rtrim(shell_exec("basename $out"));
@@ -519,26 +717,32 @@ C;
 //==============================
 //PREPARE IMAGE EDITION TABLE
 //==============================
+
+//TABLE CONTENT
 $samples="";
+
+//SETLECTION
+$seltypea="";
+
+//ACTIVATE ONLY WHEN THERE ARE 1 IMAGE OR MORE
 if($nimg>0){
-$seltypea=generateSelection(array("auto"=>"Automatic","spot"=>"Sunspot"),
-			    "typealignment",$typealignment);
+
 $caption=<<<C
 <h3>Uploaded Images</h3>
 C;
-}
+}//End when are more than one image
+
 $samples.=<<<S
+$seltypea
 <p></p>
 <table style="margin-left:5%;width:90%;" border="0px">
 <caption style="font-size:1.2em;margin-bottom:20px;">
   $caption
 </caption>
-<tr>
-  <td colspan=2 style="text-align:center;font-size:1.2em;padding:10px;">
-    E-mail me the results:
-    <input type="text" name="email" value="$email" size="30" placeholder="me@server.mail.com">
-  </td>
-</tr>
+<tr><td colspan=2>
+  $helplocate
+  $helpinfo
+</td></tr>
 S;
 
 $nimg=0;
@@ -546,8 +750,8 @@ foreach($obsimages as $img){
   $nimg++;
 
   //GET FILENAME OF IMAGES
-  preg_match("/([^\.]+)\.\w+/",$img,$matches);
-  $fname=$matches[1];
+  $fp=fileProperties($img);
+  $fname=$fp["fname"];
 
   //GET PROPERTIES OF FILE
   $fsize=round(filesize("$obsdir/$img")/1024,2);
@@ -568,6 +772,8 @@ foreach($obsimages as $img){
   $varspot="sunspot$nimg";
   $varposmerc="posmercury$nimg";
   $varposspot="possunspot$nimg";
+  $varcenter="center$nimg";
+  $varR="R$nimg";
 
   if(!isset($$varmerc)){$valmerc="Use your mouse";}
   else{$valmerc=$$varmerc;}
@@ -581,6 +787,11 @@ foreach($obsimages as $img){
   if(!isset($$varposspot)){$valposspot="Use your mouse";}
   else{$valposspot=$$varposspot;}
 
+  if(!isset($$varcenter)){$valcenter="Not yet determined";}
+  else{$valcenter=$$varcenter;}
+
+  if(!isset($$varR)){$valR="Not yet determined";}
+  else{$valR=$$varR;}
 
   $vartime="time$nimg";
   $valtime=$$vartime;
@@ -590,24 +801,30 @@ $samples.=<<<C
   <td>
     <canvas id="image$nimg" value="$obsdir/$img" width="$width" height="$height">
     </canvas>
+    <div class="figcaption">
+      $img<br/>
+      <a href="$obsdir/$img" target="_blank">Download</a> ($fsize kB) |
+      <a href="$obsdir/$fname.exif" target="_blank">Metadata</a>
+      <input type="hidden" name="img$nimg" value="$fname">
+    </div>
   </td>
   <td valign="top" style="width:100%;padding-left:10px;">
     <table style="font-size:0.8em">
       <tr><td>
 	  <b>Image $nimg</b>
       </td></tr>
-      <!-- NAME -->
-      <tr><td>
-	  File: <a href="$obsdir/$img" target="_blank">$img</a> ($fsize kB)
-	  <input type="hidden" name="img$nimg" value="$fname">
-      </td></tr>
-      <!-- EXIF -->
-      <tr><td>
-	  EXIF: <a href="$obsdir/$fname.exif" target="_blank">Download</a>
-      </td></tr>
       <!-- TIME -->
       <tr><td>
 	  <b>Local Time</b>: <input type="text" name="time$nimg" value="$valtime" placeholder="HH:MM:SS">
+      </td></tr>
+      <!-- SOLAR DISK -->
+      <tr><td>
+	  <b>Solar center</b>:<br/>
+	  <input id="image${nimg}_center" type="text" name="center$nimg" value="$valcenter" readonly>
+      </td></tr>
+      <tr><td>
+          <b>Solar radius (px)</b>:<br/>
+	  <input id="image${nimg}_R" type="text" name="R$nimg" value="$valR" readonly>
       </td></tr>
       <!-- MERCURY -->
       <tr><td>
@@ -636,12 +853,6 @@ C;
    $onload.="\nloadCanvas('image$nimg');\n";
 }
 $samples.=<<<T
-<tr>
-  <td colspan=2 style="text-align:center;font-size:1.2em;padding:10px;">
-    Type of alignment: $seltypea
-    <input type='hidden' name='nimg' value='$nimg'>
-  </td>
-</tr>
 </table>
 T;
 
@@ -649,11 +860,10 @@ T;
 //TITLE
 //==============================
 $body.=<<<B
-<h3>Submit your observations</h3>
+$helpsubmission
 $FORM
 <input type="hidden" name="obsid" value="$obsid">
 <input type="hidden" name="step" value="$step">
-
 B;
 
 //==============================
@@ -675,40 +885,26 @@ $ERRORS
 B;
 }
 
-//==============================
-//SAVE & NEXT STEP BUTTONS
-//==============================
-$nextbut=<<<BUT
-<div class="buttons">
-<input class="submit" type="submit" name="action" value="Next Step">
-</div>
-BUT;
-$savebut=<<<BUT
-<div class="buttons">
-<input class="submit" type="submit" name="action" value="Save" style="margin-bottom:0.5em"><br/>
-</div>
-BUT;
-$alignbut=<<<BUT
-<div class="buttons">
-<input class="submit" type="submit" name="action" value="Align" style="margin-bottom:0.5em"><br/>
-</div>
-BUT;
-
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //FORMS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
 if($step>=4){
 //==============================
 //SUBMISSION BUTTON
 //==============================
 if($step>=5){
 $body.=<<<B
-<div class="step">
-  <div style="text-align:center;margin-top:10px;padding:20px;background:lightblue;font-size:1.5em;">
-  Congratulations! your observations have been submitted!
-</div>
+<div>
+  <div style="text-align:center;margin-top:10px;padding:20px;background:lightgreen;font-size:1.5em;">
+    Congratulations! your observations have been submitted!<br/>
+  </div>
+  <div style="text-align:center;fontsize:0.8em;margin-top:1em;">
+    <a href="JavaScript:void(null);$('.step').toggle()">View/Edit/Hide information about this observations</a>
+  </div>
 </div>
 B;
+   $onload.="\n$('.step').hide();\n";
 }else{
 $body.=<<<B
 <div class="step">
@@ -724,13 +920,15 @@ B;
 
 if($step>=3){
 //==============================
-//BASIC INFORMATION
+//STEP 3: BASIC INFORMATION
 //==============================
   if($step>3){$nextbut="";}
 $body.=<<<B
 <div class="step">
-<div class="boxtitle">Step 1. Location information</div>
+<a name="#step3"></a>
+<div class="boxtitle">Step 3. Location information</div>
 $nextbut$savebut
+<div style="margin-top:3em">$helparistarchus</div>
 <table class="form">
 <!-- -------------------- FIELD -------------------- -->
 <tr>
@@ -791,7 +989,66 @@ $nextbut$savebut
 <tr>
   <td class="help" colspan=2>Please provide details of your instruments or method of observation.</td>
 </tr>
-<!-- -------------------- FIELD -------------------- -->
+</table>
+</div>
+B;
+}
+
+if($step>=2){
+//==============================
+//STEP 2: ANALYSIS RESULTS
+//==============================
+  if($step>2){$nextbut="";}
+
+$body.=<<<B
+<div class="step">
+<a name="#step2"></a>
+<div class="boxtitle">Step 2. Analyse your images</div>
+$nextbut$savebut$alignbut
+B;
+
+ if($action=="Align"){
+
+$body.=<<<B
+<center id="loading">
+  <div>
+  <span style="font-size:1.5em">Aligning</span><br/>
+    <img src="img/loading.gif"/>
+  </div>
+</center>
+<div style="margin-top:3em">$helpresults</div>
+<div id="results"></div>
+B;
+    $alignimages=implode(",",$obsimages);
+    $onload.="\nalignImages('$obsdir','$alignimages','loading','results');\n";
+ }else{
+
+   if(file_exists("$obsdir/output.log")){
+      $output=shell_exec("cat $obsdir/output.log");
+$body.=<<<B
+<div style="margin-top:3em">$helpresults</div>
+$output
+B;
+   }
+
+ }
+
+ $selection=generateSelection(array("auto"=>"Automatic","spot"=>"Sunspot"),
+			      "typealignment",$typealignment);
+   
+$body.=<<<B
+<div style="margin-top:3em">$helpalign</div>
+
+<table class="form" style="background:lightgray">
+<tr>
+  <td class="field">
+    Type of alignment:
+  </td>
+  <td class="input">
+    $selection
+    <input type='hidden' name='nimg' value='$nimg'>
+  </td>
+</tr>
 <tr>
   <td colspan=2 style="text-align:center">
     <a class="nolevel0" href="JavaScript:void(null)" onclick="$('#userinfo').toggle()">
@@ -801,79 +1058,48 @@ $nextbut$savebut
 </tr>
 </table>
 
-<table id="userinfo" class="form nolevel1">
-<!-- -------------------- FIELD -------------------- -->
+<table id="userinfo" class="form nolevel1" style="background:lightgray">
 <tr>
-  <td class="field">Name:</td>
+  <td class="field">Your name:</td>
   <td class="input">
     <input type="text" name="name" value="$name" size="30" placeholder="eg. John Smith">
   </td>
 </tr>
 <tr>
-  <td class="help" colspan=2>Provide your name for contact purposes</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
-<tr>
-  <td class="field">E-mail:</td>
+  <td class="field">
+    Your e-mail:
+  </td>
   <td class="input">
     <input type="text" name="email" value="$email" size="30" placeholder="me@server.mail.com">
   </td>
 </tr>
 <tr>
-  <td class="help" colspan=2>Provide your e-mail</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
-<tr>
-  <td class="field">Secret code:</td>
+  <td class="field">
+    Secret code:
+  </td>
   <td class="input">
     <input type="password" name="code" value="$code" size="30" placeholder="secret code for your data">
   </td>
 </tr>
-<tr>
-  <td class="help" colspan=2>Provide a secret code to secure your observations. Only you with your secret code will be able to access and modify this information</td>
-</tr>
-<!-- -------------------- FIELD -------------------- -->
 </table>
-</div>
 B;
-}
 
-if($step>=2){
-//==============================
-//IMAGE CALIBRATION
-//==============================
-  if($step>2){$nextbut="";}
-$body.=<<<B
-<div class="step">
-<div class="boxtitle">Step 2. Alignment verification</div>
-$nextbut$savebut$alignbut
-<center id="loading">
-  <div>
-  <span style="font-size:1.5em">Aligning</span><br/>
-    <img src="img/loading.gif"/>
-  </div>
-</center>
-<p id="results">
-</p>
-</div>
-B;
- 
-  $alignimages=implode(",",$obsimages);
-  $onload.="\nalignImages('$obsdir','$alignimages','loading','results');\n";
-
-
+ $body.="</div>";
 }
 
 if($step>=1){
 //==============================
-//IMAGE UPLOAD
+//STEP 1:IMAGE UPLOAD
 //==============================
   if($step>1){$nextbut="";}
+
 $body.=<<<B
 <div class="step">
-<div class="boxtitle">Step 1. Images upload</div>
+<a name="#step1"></a>
+<div class="boxtitle">Step 1. Upload your images</div>
 $nextbut$savebut
-<center>
+<center style="margin-top:3em">
+  $helpupload
   <div class="fileUpload">
     <span>
       Click or drag your images here to upload them<br/>

@@ -152,6 +152,8 @@ function loadCanvas(element)
     var $spot=$('#'+element+"_rect_spot");
     var $posmerc=$('#'+element+"_rect_pos");
     var $posspot=$('#'+element+"_rect_spot_pos");
+    var $center=$('#'+element+"_center");
+    var $R=$('#'+element+"_R");
 
     var $targ,$pos;
 
@@ -184,6 +186,7 @@ function loadCanvas(element)
 	}
 	c.restore();
     }
+
     function crossHair(coords,iw,ih,color)
     {
 	
@@ -200,6 +203,30 @@ function loadCanvas(element)
 	c.lineTo(x+dw,y);
 	c.stroke();
     }
+    
+    function solarInfo(center,radius)
+    {
+	var pos=center.split(",");
+	var x=pos[0]/(1.0*iw)*w;
+	var y=pos[1]/(1.0*ih)*h;
+	var r=radius/(1.0*ih)*h
+	var dp=r;
+	c.strokeStyle="red";
+	c.setLineDash([10])
+	c.lineWidth=1;
+
+	c.beginPath()
+	c.moveTo(x-dp,y);
+	c.lineTo(x+dp,y);
+	c.moveTo(x,y-dp);
+	c.lineTo(x,y+dp);
+	c.stroke()
+
+	c.beginPath()
+	c.arc(x,y,r,0,2*Math.PI);
+	c.stroke();
+
+    }
 
     //Draw image
     var img=new Image();
@@ -212,6 +239,7 @@ function loadCanvas(element)
 	ih=img.naturalHeight;
 	crossHair($posmerc.val(),iw,ih,'blue');
 	crossHair($posspot.val(),iw,ih,'red');
+	solarInfo($center.val(),$R.val());
     }
     img.src=imgsrc;
     ////subimg(element,element+"_sub_merc",imgsrc,$merc.val());

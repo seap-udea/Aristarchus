@@ -65,8 +65,13 @@ else if($action=="align"){
 
   //RUN PYTHON PROCEDURE
   $cmd="$PYTHONCMD bin/aristarco6-align.py $obsdir $images";
-  $output=$cmd;
-  $output=shell_exec($cmd);
+  $out="";
+  $err="";
+  mySystem($cmd,$obsdir,$out,$err);
+  $output.=$out;
+  //$output=$cmd;
+  
+  //$output=shell_exec($cmd." 1&>2 $obsdir/output.log");
   //sleep(1);
 }
 //////////////////////////////////////////////////////////

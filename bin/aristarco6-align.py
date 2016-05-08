@@ -16,13 +16,17 @@ NTHRES=3
 #############################################################
 #ANALYZE IMAGES
 #############################################################
+print>>stderr,"ARISTARCHUS CAMPAIGN 6 ANALYSIS\n"
+
 limages=images.split(",")
 nimages=len(limages)
 ipos=np.arange(nimages)
+print>>stderr,"Number of images: ",nimages
 
 times=[]
 APs=[]
 rms=[]
+rps=[]
 images=[]
 i=0
 minres=1e100
@@ -50,7 +54,7 @@ for image in limages:
     w,h=Mono.shape
     X,Y=np.meshgrid(np.arange(h),np.arange(w))
     maxval=Mono.max()
-    print "\nImage %d: '%s', resolution %d x %d..."%(i,image,w,h)
+    print>>stderr, "\nImage %d: '%s', resolution %d x %d..."%(i,image,w,h)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #GET BORDER OF THE SUN
@@ -74,14 +78,14 @@ for image in limages:
             R=Rmean
             dR=Rstd
             dRR=dRr
-        #print "Threshold = %d, Rmean,Rstd,dR = "%(maxval/xthres),Rmean,Rstd,dRr
+        #print>>stderr, "Threshold = %d, Rmean,Rstd,dR = "%(maxval/xthres),Rmean,Rstd,dRr
 
     nborder=rs.shape[0]
-    print "Optimal solution:"
-    print "\t","Threshold = maxval / %.2f"%(xthresmin)
-    print "\t","R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
-    print "\t","Center = (%d,%d)"%(xcenter,ycenter)
-
+    print>>stderr, "\t"*1,"Optimal solution:"
+    print>>stderr, "\t"*2,"Threshold = maxval / %.2f"%(xthresmin)
+    print>>stderr, "\t"*2,"R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
+    print>>stderr, "\t"*2,"Center = (%d,%d)"%(xcenter,ycenter)
+    
     """
     plt.figure(figsize=(8,8))
     plt.plot(rs[:,0],rs[:,1],'ro',ms=5,mec='none')
@@ -93,9 +97,9 @@ for image in limages:
     qcomplete=True
     if dRR>DRTOL:qcomplete=False
     if qcomplete:
-        print "The Sun is complete"
+        print>>stderr,"\t"*1,"The Sun is complete"
     if not qcomplete:
-        print "The Sun has been chopped"
+        print>>stderr,"\t"*1,"The Sun has been chopped"
         x1=rs[nborder/3,0]
         y1=rs[nborder/3,1]
         x2=rs[nborder/2,0]
@@ -118,7 +122,7 @@ for image in limages:
                 R=Rr
                 lmin=l
 
-        print "Radial dispersion at solution = ",dR
+        print>>stderr,"\t"*1,"Radial dispersion at solution = ",dR
         dRR=dR/(1.*R)
         xcenter=xs+lmin*rl[0]
         ycenter=ys+lmin*rl[1]
@@ -132,9 +136,9 @@ for image in limages:
         plt.axvline(xcenter)
         #"""
 
-        print "After recalculation:"
-        print "\t","R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
-        print "\t","Center = (%d,%d)"%(xcenter,ycenter)
+        print>>stderr,"\t"*1,"After recalculation:"
+        print>>stderr,"\t"*2,"R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
+        print>>stderr,"\t"*2,"Center = (%d,%d)"%(xcenter,ycenter)
 
     """
     plt.axhline(yc,color='r')
@@ -145,14 +149,19 @@ for image in limages:
     plt.savefig("tmp/c.png")
     break
     #"""
-
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #CROP IMAGE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dp=0
-    xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
-    ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
-
+    if qcomplete:
+        print>>stderr,"\t","Cropping a complete image"
+        xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
+        ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
+    else:
+        print>>stderr,"\t","Cropping a partial image"
+        xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
+        ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
+        
     xmin=cropCoord(xmin,w)
     ymin=cropCoord(ymin,h)
     xmax=cropCoord(xmax,w)
@@ -183,6 +192,10 @@ for image in limages:
     ppos=config["posmercury"].split(",")
     xm=float(ppos[0]);ym=float(ppos[1])
     rm=np.sqrt((xm-xcenter)**2+(ym-ycenter)**2)/R
+    
+    #APPARENT SIZE OF MERCURY
+    Dp=float(ppos[2])
+    rp=Dp/2.0/R
 
     #APPARENT POSITION ANGLE
     """
@@ -190,10 +203,11 @@ for image in limages:
     Mercury meaured in the clockwise direction.
     """
     AP=np.arctan2((ym-ycenter),(xm-xcenter))*RAD
-    print "Mercury position : r = %.5f, AP = %.2f deg"%(rm,AP)
+    print>>stderr,"\t"*1,"Mercury position : r = %.5f, AP = %.2f deg"%(rm,AP)
 
     times+=[time]
     rms+=[rm]
+    rps+=[rp]
     APs+=[AP]
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -223,6 +237,7 @@ $AP='%.2f';
 
 times=np.array(times)
 rms=np.array(rms)
+rps=np.array(rps)
 APs=np.array(APs)
 
 #############################################################
@@ -230,18 +245,19 @@ APs=np.array(APs)
 #############################################################
 irm=rms.argsort()[::-1]
 rms_s=rms[irm]
+rps_s=rps[irm]
 times_s=times[irm]
 APs_s=APs[irm]
 images=[images[i] for i in irm]
 
-print "\nPoint order:",irm
+print>>stderr, "\nPoint order:",irm
 
 rs=rms[irm]
-print "Radii:",rs
+print>>stderr, "Radii:",rs
 
 ts=np.zeros(nimages)
 for i in xrange(1,nimages):ts[i]=times_s[i]-times_s[0]
-print "Times:",ts
+print>>stderr, "Times:",ts
 
 #############################################################
 #SEARCH FOR A SOLUTION
@@ -249,8 +265,15 @@ print "Times:",ts
 params=dict(ts=ts,rs=rs,verbose=0)
 solution=minimize(tdSlopeMinimize,[45*DEG],args=(params,))
 ql=solution["x"]
+
 qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
-print "Angles: ",qs*RAD
+print>>stderr, "Angles: ",qs*RAD
+
+if logp<-2:
+    status="Success"
+else:
+    status="Failed"
+
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #PLOT SOLUTION
@@ -262,7 +285,7 @@ tms=np.linspace(0,ts_s[-1],100)
 dms=m*tms+b
 fig=plt.figure()
 ax=fig.gca()
-ax.plot(ts,ds,"k+",ms=20)
+ax.plot(ts,ds,"rs",ms=20,mec='none')
 ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
 
 ax.grid()
@@ -270,6 +293,18 @@ ax.legend(loc='best')
 ax.set_xlabel("Time from most external position (hours)")
 ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
 fig.savefig("%s/alignment-result.png"%obsdir)
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#TRANSIT DURATION
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+a=1.0
+b=-2*rs[0]*np.cos(qs[0])
+c=-(1-rs[0]**2)
+d1,d2=quadraticEquation(a,b,c)
+dT=np.abs(d1-d2)
+print>>stderr, "Traverse distance (R): ",dT
+tT=dT/m
+print>>stderr, "Transit duration (hours): ",tT
 
 #############################################################
 #ROTATE IMAGES
@@ -279,14 +314,14 @@ for i in irm:
     
     # Get image information
     image=images[i]
-    print "File: ",image["name"]
+    print>>stderr, "File: ",image["name"]
 
     rotated="%s/%s-rotated-result.%s"%(obsdir,image["name"],image["ext"])
     Rotated=imread(rotated)
     final="%s/%s-final-result.%s"%(obsdir,image["name"],image["ext"])
 
     # Adjusting to a common size
-    print "\t","Ajusting image to common resolution %sx%s"%(hcommon,wcommon)
+    print>>stderr, "\t","Ajusting image to common resolution %sx%s"%(hcommon,wcommon)
     Rotated=imresize(Rotated,(hcommon,wcommon))
     plt.imsave(rotated,Rotated)
 
@@ -296,7 +331,7 @@ for i in irm:
         j+=1
         continue
 
-    print "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rs[i],qs[i]*RAD)
+    print>>stderr, "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rs[i],qs[i]*RAD)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #LOAD ROTATED IMAGE
@@ -324,7 +359,122 @@ plt.imsave(alignment,Alignment)
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #HTML
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+table=""
+k=1
+for i in irm:
+    image=images[i]
+    fname=image["name"]
+    ext=image["ext"]
+    crop="%s/%s-crop-result.%s"%(obsdir,fname,ext)
+    table+="""
+<!-- CROPPED IMAGE -->
+<tr>
+<td class="value">%d</td>
+<td>
+<img src='%s' height='200px'/>
+</td>
+<!-- BASIC PROPERTIES -->
+<td class="value">%.4f</td>
+<td class="value">%.2f</td>
+<td class="value">%.2f</td><td class="value">%.1f</td>
+<td class="value">%.1f</td>
+</tr>
+"""%(k,crop,times_s[i],ts[i],rms_s[i],APs_s[i],qs[i]*RAD)
+    k+=1
+    
+    
+imageresult="%s/image-alignment-result.png"%obsdir
+
 html="""
-<img src='%s/image-alignment-result.png'/>
-"""%(obsdir
+<h3>Analysis results</h3>
+
+<h4>Result of the alignment procedure</h4>
+
+<p>
+The result was: <b>%s</b>
+</p>
+
+This is the resulting image:
+
+<div style="text-align:center">
+<a href='%s' target='_blank'>
+<img src='%s' width="60%%"/>
+</a>
+</div>
+
+<p>
+After analysing the image we determined the following observable
+transit parameters:
+</p>
+
+<ul>
+<li>Radius of the planet: r/R = %.5f</li>
+<li>Impact parameter: b/R = %.5f</li>
+<li>Apparent angular velocity: v/R = %.5f h<sup>-1</sup></li>
+<li>Transit duration: t<sub>T</sub> = %.4f h</li>
+</ul>
+
+<h4>Angles</h4>
+
+<center>
+
+<style>
+td.value{
+vertical-align:top;
+text-align:center;
+}
+</style>
+
+<table border=1px style="margin-left:10%%;width:60%%;">
+<tr>
+<th width=0%%>#</th>
+<th width=0%%>Cropped image</th>
+<th width=30%%>Time</sub></th>
+<th width=30%%>t-t<sub>1</sub></th>
+<th width=30%%>r/R</th>
+<th width=30%%>PA (<sup>o</sup>)</th>
+<th width=30%%>&theta; (<sup>o</sup>)</th>
+</tr>
+%s
+</table>
+</center>
+
+<p>
+
+Where R is the solar apparent radius and AP is the position angle with
+respect to the apparent west side (rightmost side of the image)
+measured in the clockwise direction.
+
+</p>
+
+<h4>Fitting</h4>
+
+Result of the fit:
+
+<div style="text-align:center">
+<img src='%s/alignment-result.png' width="60%%"/>
+</div>
+
+The fitting resulting parameters were:
+
+<ul>
+<li>m = %.5f</li>
+<li>b = %.5f</li>
+<li>r = %.5f</li>
+<li>s = %.5f</li>
+<li>log p = %.1f</li>
+</ul>
+
+<h4>Other download</h4>
+
+<a href='%s/cmd.log' target='_blank'>Command</a> | 
+<a href='%s/error.log' target='_blank'>Output</a><br/>
+"""%(status,
+     imageresult,imageresult,
+     rps.mean(),B,m,tT,
+     table,
+     obsdir,
+     m,b,r,s,logp,
+     obsdir,obsdir)
+
 print html

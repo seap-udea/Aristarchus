@@ -1,22 +1,10 @@
-DATABASE=Sinfin
-USERDB=sinfin
-TABLE="Reconocimientos"
-BACKDIR="data/dump"
-
 clean:
-	touch delete.pyc delete~
-	rm -r *.pyc
-	find . -name "*~" -exec rm {} \;
+	@find . -name "*~" -or -name "*.pyc" -exec rm {} \;
 
-cleanrecon:
-	@echo -n "Please provide password for user '$(USERDB)': "
-	@mysql -u sinfin -p $(DATABASE) -e "truncate table $(TABLE);"
-	@rm -rf data/recon/*
+cleandata:
+	@rm -r data/Aristarco6/*
 
-cleantrash:
-	rm -rf trash/*
-
-cleanall:clean cleanrecon cleantrash
+cleanall:clean cleandata
 
 commit:
 	@echo "Commiting changes..."

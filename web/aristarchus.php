@@ -856,7 +856,7 @@ T;
 function listImages($obsid)
 {
   $obsdir="data/Aristarco6/$obsid";
-  $imgs=rtrim(shell_exec("ls -m $obsdir/$obsid-image-*.*"));
+  $imgs=rtrim(shell_exec("ls -rtm $obsdir/$obsid-image-*.*"));
   $fimages=preg_split("/\s*,\s*/",$imgs);
   $numimgs=0;
   $images=[];
@@ -873,6 +873,44 @@ function listImages($obsid)
     array_push($images,"$fname.$ext");
   }
   return $images;
+}
+
+function fileProperties($filename)
+{
+  $dirname=rtrim(shell_exec("dirname $filename"));
+  $basename=rtrim(shell_exec("basename $filename"));
+  preg_match("/([^\.]+)\.(\w+)/",$basename,$matches);
+  $fname=$matches[1];
+  $ext=$matches[2];
+  return array("dirname"=>$dirname,
+	       "basename"=>$basename,
+	       "fname"=>$fname,
+	       "ext"=>$ext);
+}
+
+function mySystem($cmd,$tmp,&$out,&$err)
+{
+  $proc=proc_open($cmd,array(0=>array("pipe","r"),
+			     1=>array("pipe","w"),
+			     2=>array("pipe","w")),$pipes);
+  if(is_resource($proc)){
+    $out=stream_get_contents($pipes[1]);
+    $err=stream_get_contents($pipes[2]);
+
+    $fout=fopen("$tmp/cmd.log","w");
+    fwrite($fout,$cmd);
+    fclose($fout);
+
+    $fout=fopen("$tmp/output.log","w");
+    fwrite($fout,$out);
+    fclose($fout);
+
+    $ferr=fopen("$tmp/error.log","w");
+    fwrite($ferr,$err);
+    fclose($ferr);
+
+    proc_close($proc);
+  }
 }
 
 //////////////////////////////////////////////////////////

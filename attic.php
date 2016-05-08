@@ -92,3 +92,40 @@ B;
 //==============================
 //SUBMISSION FORM
 //==============================
+
+<tr>
+  <td class="field">
+    E-mail me the results:
+  </td>
+  <td class="input">
+    <input type="text" name="email" value="$email" size="30" placeholder="me@server.mail.com">
+  </td>
+</tr>
+
+
+  if($nimg>=3){
+    $selection=generateSelection(array("auto"=>"Automatic","spot"=>"Sunspot"),
+				 "typealignment",$typealignment);
+$seltypea=<<<S
+<table class="form" style="background:lightgray">
+<tr>
+  <td class="field">
+    Type of alignment:
+  </td>
+  <td class="input">
+    $selection
+    <input type='hidden' name='nimg' value='$nimg'>
+  </td>
+</tr>
+</table>
+S;
+  }
+
+else if($nimg>=3 and 
+	     (isBlank($email) or
+	      !preg_match("/@/",$email) or
+	      !preg_match("/\./",$email))
+	     ){
+      errorMsg("Before perform the analysis you must provide a valid e-mail");
+      goto endaction;
+    }

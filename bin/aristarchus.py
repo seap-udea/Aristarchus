@@ -7,7 +7,7 @@ use('Agg')
 import matplotlib.pylab as plt
 import matplotlib.cm as cm
 import numpy as np
-from sys import argv,exit
+from sys import argv,exit,stderr
 from os import system
 from scipy.misc import *
 from scipy.optimize import minimize,bisect
