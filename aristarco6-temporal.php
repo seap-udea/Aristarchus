@@ -41,13 +41,10 @@ $nimg=count($obsimages);
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php?mode=howto">How to participate?</a>
-</span>
-<span class="botonmenu">
   <a class="inverted" href="aristarco6.php?mode=contacts">Contact times</a>
 </span>
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php?mode=submit">Submit observations</a>
+  <a class="inverted" href="aristarco6.php">Submit observations</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="aristarco6.php?mode=list">List of observations</a>
@@ -425,74 +422,11 @@ M;
 //BODY
 //////////////////////////////////////////////////////////
 if(0){}
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//HOWTO
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($mode=="howto"){
-$body.=<<<B
-<center>
-<h3>How to participate in the Aristarchus Campaign?</h3>
-B;
- $list=rtrim(shell_exec("ls -m img/aristarco6/Aristarco-6-QuickGuide-english-final/*.jpg"));
- $files=preg_split("/\s*,\s*/",$list);
- $content="";
- $listfiles="";
- $i=1;
- foreach($files as $file){
-   if(isBlank($file)){continue;}
-   $listfiles.="<p><a name='#slide$i'></a><img src='$file' style='border:solid black 1px;margin:5px;'/></p>\n";
-$content.=<<<C
- <a href='JavaScript:void(null)' onclick='location.hash="#slide$i"'>Slide $i</a> |
-C;
-   $i+=1;
- }
- $content=trim($content,"|");
- $body.="<p><!--$content--></p>$listfiles</center>";
-}
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-//SUBMIT SCREENSHOTS
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($mode=="submit"){
+else if($mode=="contacts"){
 
-$screenshots="";
-
-$body.=<<<B
-<div style="font-size:1.2em">
-<p>
-It is exciting.  The day of the Transit of Mercury has arrived.
-People all around the world are preparing their equipments to observe
-a relatively rare phenomenon.
-</p>
-<p>
-The technical team of the Aristarchus Campaigns is also prepared to
-receive observations from all around the world.  For that purpose we
-will release tomorrow morning (when the transit begins) a special
-upload webpage.  
-</p>
-<p>
-This is the place where the submission webpage work but we have
-disabled it until the day comes.  Using this tool you will not only be
-able to submit your observations but also to get a glimpse of what
-they contain.  In essence you will be helping us to analyze your
-images before you submit them. Cool!
-</p>
-<p>
-Below we want to offer you some screenshots of this woderful tool we
-have developed for all our contributors.
-</p>
-<p>
-Clear skies for all!
-</p>
-</div>
-<h3>Submission tool screenshots</h3>
-$screenshots
-B;
-
-}
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //CONTACTS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($mode=="contacts"){
 $body.=<<<B
 <h3>Contact times calculator</h3>
 <p>

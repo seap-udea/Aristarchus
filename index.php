@@ -21,7 +21,7 @@ $mainmenu=getMainMenu();
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php">Mercury Transit</a>
+  <a class="inverted" href="aristarco6.php?mode=submit">Mercury Transit</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="http://bit.ly/aristarco-saa-6-en" target="_blank">Campaign Site</a>
@@ -158,7 +158,7 @@ Campaigns</a>
 In this website you will find on-line tools and activities intended to
 make more complete your experience with the Campaigns.  You will also
 find here the upload forms required to submit your observations.
-");
+","font-size:1.2em");
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 //WHAT'S NEW
