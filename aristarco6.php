@@ -559,7 +559,8 @@ $helpsubmission=fadingBox("
 <p>
 Using this page you will be able to analyze a set of images of the
 transit of Mercury and obtain from them amazing information about
-Mercury and the Sun.  This is the aim of the Aristarchus Campaign.
+Mercury and the Sun.  This is precisely the aim of the Aristarchus
+Campaign.
 </p>
 
 <p>
@@ -614,7 +615,7 @@ images the total size must not be larger than 50MB.
  
  $helplocate.=fadingBox("
 
-Use your mouse to select the region over the image(s) around Mercury.
+Use your mouse to select a small rectangular region around Mercury.
 A <b>dashed blue rectangle</b> will appear when selecting Mercury.
 Repeat yo select the region where you see the largest sunspot.  A
 <b>dashed red rectangle</b> will be visible in that case.  If Mercury

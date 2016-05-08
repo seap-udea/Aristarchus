@@ -817,10 +817,12 @@ C;
 function fadingBox($text,$style,$close=true)
 {
   $closeb="";
+  $id=generateRandomString(3);
+  
   if($close){
 $closeb=<<<B
 <div style="float:right;top:0px;right:0px;clear:right;position:relative;font-size:0.5em">
-<a href="JavaScript:void(null)" onclick="$('#welcome').toggle('fast','')">
+<a href="JavaScript:void(null)" onclick="$('#$id').toggle()">
 X
 </a>
 </div>
@@ -828,7 +830,7 @@ B;
   }
 
 $box=<<<BOX
-<div id="welcome" class="box" style="$style">
+<div id="$id" class="box" style="$style">
 $closeb
 $text
 </div>

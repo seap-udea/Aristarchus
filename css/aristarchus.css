@@ -135,6 +135,8 @@ div.boxtitle{
     margin-bottom:0.5em;
     margin-top:0.5em;
     font-weight:bold;
+    font-size:1.2em;
+    text-align:center;
 }
 div.status{
     background:lightblue;

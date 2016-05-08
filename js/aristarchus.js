@@ -158,34 +158,12 @@ function loadCanvas(element)
     var $targ,$pos;
 
     var domelement=document.getElementById(element);
+    var merc=1;
+    var spot=0;
 
     //Get Canvas Object
     var canvas=drawInit(element);
     var c=canvas.ctx,w=canvas.w,h=canvas.h;
-
-    function rectangles(){
-	c.save();
-	c.setLineDash([0]);
-	var mercury=$merc.val();
-	var sunspot=$spot.val();
-	var mercuryxy;
-	if(mercury.indexOf(',')!=-1){
-	    mxy=mercury.split(",");
-	    c.beginPath()
-	    c.strokeStyle="blue";
-	    c.rect(mxy[0]*w,mxy[1]*h,(mxy[2]-mxy[0])*w,(mxy[3]-mxy[1])*h);
-	    c.stroke();
-	}
-	var sunspotxy;
-	if(sunspot.indexOf(',')!=-1){
-	    mxy=sunspot.split(",");
-	    c.beginPath()
-	    c.strokeStyle="red";
-	    c.rect(mxy[0]*w,mxy[1]*h,(mxy[2]-mxy[0])*w,(mxy[3]-mxy[1])*h);
-	    c.stroke();
-	}
-	c.restore();
-    }
 
     function crossHair(coords,iw,ih,color)
     {
@@ -225,7 +203,27 @@ function loadCanvas(element)
 	c.beginPath()
 	c.arc(x,y,r,0,2*Math.PI);
 	c.stroke();
+    }
 
+    function selectInfo()
+    {
+	var fsize=0.05;
+	var xtext=0.05*w,ytext=0.05*w;
+	if(merc){
+	    domelement.style.cursor="crosshair";
+	    c.fillStyle='blue';
+	    c.font=fsize*w+'px Verdana';
+	    c.textAlign='left';
+	    c.textBaseline='middle';
+	    c.fillText('Select Mercury',xtext,ytext);
+	}else{
+	    domelement.style.cursor="default";
+	    c.fillStyle='red';
+	    c.font=fsize*w+'px Verdana';
+	    c.textAlign='left';
+	    c.textBaseline='middle';
+	    c.fillText('Select a Sunspot',xtext,ytext);
+	}
     }
 
     //Draw image
@@ -234,28 +232,29 @@ function loadCanvas(element)
     var iw,ih;
     img.onload=function(){
 	c.drawImage(img,0,0,w,h);
-	//rectangles();
+
 	iw=img.naturalWidth;
 	ih=img.naturalHeight;
+	
+	//Cross hair
 	crossHair($posmerc.val(),iw,ih,'blue');
 	crossHair($posspot.val(),iw,ih,'red');
 	solarInfo($center.val(),$R.val());
+	
+	//Select cursor
+	selectInfo();
     }
     img.src=imgsrc;
-    ////subimg(element,element+"_sub_merc",imgsrc,$merc.val());
 
     var xoff,yoff;
     var off=getPosition($element.parent());
     xoff=off.xoff;
     yoff=off.yoff;
-    //$info.html(xoff+","+yoff);
     
     //Start drawing
     var xini=0,yini=0;
     var xend=0,yend=0;
     var startrect=0;
-    var merc=1;
-    var spot=0;
     var typeimg;
 
     function startDrawing(e){
@@ -266,10 +265,8 @@ function loadCanvas(element)
 	}
 	var x=e.pageX;
 	var y=e.pageY;
-	//$info.html(x+","+y);
 	xini=parseInt(x-xoff);
 	yini=parseInt(y-yoff);
-	//domelement.style.cursor="pointer";
 	startrect=1;
 	c.clearRect(0,0,w,h);
 	c.drawImage(img,0,0,w,h);
@@ -279,7 +276,6 @@ function loadCanvas(element)
 	var y=e.pageY;
 	xend=parseInt(x-xoff);
 	yend=parseInt(y-yoff);
-	//domelement.style.cursor="default";
 	
 	if(merc){
 	    $targ=$merc;typeimg="merc";
@@ -290,7 +286,6 @@ function loadCanvas(element)
 	    $pos=$posspot;
 	}
 
-	//alert(iw+","+ih+";"+w+","+h);
 	$targ.val(Math.round10(xini/(1.0*w),-4)+","+
 		  Math.round10(yini/(1.0*h),-4)+","+
 		  Math.round10(xend/(1.0*w),-4)+","+
@@ -308,12 +303,12 @@ function loadCanvas(element)
 	xini=0;xend=0;
 	yini=0;yend=0;
 
-	//rectangles();
 	if(merc){
 	    crossHair($posmerc.val(),iw,ih,'blue');
 	}else{
 	    crossHair($posspot.val(),iw,ih,'red');
 	}
+	selectInfo();
 
 	//Extract area
 	ajaxDo("locate","imgsrc:"+imgsrc+";coords:"+$targ.val(),
@@ -337,7 +332,6 @@ function loadCanvas(element)
 	    if(spot) color='red'
 	    c.strokeStyle=color;
 	    c.setLineDash([5]);
-	    //$info.html(xini+","+yini+"->"+xend+","+yend);
 	    c.rect(xini,yini,xend-xini,yend-yini);
 	    c.drawImage(img,0,0,w,h);
 	    c.stroke();
@@ -353,10 +347,11 @@ function filesUpload()
 {
     var $input=$('#inputfiles')
     var names=[];
-    for (var i=0;i<$input.get(0).files.length;++i){
+    var nfiles=$input.get(0).files.length;
+    for (var i=0;i<nfiles;++i){
         names.push($input.get(0).files[i].name);
     }
-    $('#files').html(names.join());
+    $('#files').html("<b>"+nfiles+" files to upload</b>: "+names.join()+" <b>(press Save to upload)</b>");
 }
 
 function alignImages(obsdir,images,loading,target)
