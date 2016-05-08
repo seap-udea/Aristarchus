@@ -1,3 +1,6 @@
+DATABASE=Aristarchus
+BACKDIR=data/dump
+
 clean:
 	@find . -name "*~" -or -name "*.pyc" -exec rm {} \;
 
