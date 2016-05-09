@@ -462,7 +462,7 @@ C;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SUBMIT SCREENSHOTS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($mode=="submit"){
+else if($mode=="submit" and 0){
 
 $list=rtrim(shell_exec("ls -m img/aristarco6/Screenshots/*.png"));
 $files=preg_split("/\s*,\s*/",$list);
