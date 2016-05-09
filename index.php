@@ -170,7 +170,7 @@ $body.=newsBox("01/05/2016","Upload page of Mercury transit images",
 
 The transit of Mercury of May 9 is coming and we are preparing the
 online tools to assist participants in the Aristarchus Campaign to
-analyze and submit their images. The <a href=aristarco6.php>submission
+analyze and submit their images. The <a href=aristarco6.php?mode=submit>submission
 page</a> is ready.  Using this page you will be able not only to
 submit your images but also to perform basic analysis on them.
 
