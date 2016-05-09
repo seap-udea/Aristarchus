@@ -21,7 +21,7 @@ $mainmenu=getMainMenu();
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php">Mercury Transit</a>
+  <a class="inverted" href="aristarco6.php?mode=submit">Mercury Transit</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="http://bit.ly/aristarco-saa-6-en" target="_blank">Campaign Site</a>
