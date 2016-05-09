@@ -469,6 +469,8 @@ foreach($files as $file){
 $body.=<<<B
 <div style="font-size:1.2em;margin-left:20px;margin-right:20px">
 <p>
+<img src="img/transit.gif" width=50% align="left" style="margin-right:10px"/>
+<p>
 The day of the Transit of Mercury has arrived.  People around the
 world are preparing their equipments to observe this relatively rare
 phenomenon.
