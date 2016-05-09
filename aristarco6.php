@@ -181,11 +181,15 @@ else if($action=="Save" or $action=="Next Step")
 	$numimgs+=1;
 	$tmp=$imgfile["tmp_name"][$i];
 	$fname=$imgfile["name"][$i];
-	$fp=fileProperties($fname);
+	$fp=fileProperties("$fname");
+	//$body.=print_r($fp,true);
 	$bname=$fp["fname"];
+	$bname=preg_replace("/\s/","__",$bname);
+	$bname=preg_replace("/\./","_",$bname);
 	$ext=$fp["ext"];
 	$imgid=generateRandomString(3);
 	$suffix="image-$imgid-$bname";
+	//$body.="Suffix:".$bname;
 	$filename="${obsid}-$suffix.$ext";
 	$filephp="${obsid}-$suffix.php";
 	statusMsg("Saving image $fname as $filename...");

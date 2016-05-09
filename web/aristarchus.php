@@ -883,7 +883,7 @@ function fileProperties($filename)
 {
   $dirname=rtrim(shell_exec("dirname '$filename'"));
   $basename=rtrim(shell_exec("basename '$filename'"));
-  preg_match("/([^\.]+)\.(\w+)/",$basename,$matches);
+  preg_match("/(.+)\.(\w\w\w)$/",$basename,$matches);
   $fname=$matches[1];
   $ext=$matches[2];
   return array("dirname"=>$dirname,
