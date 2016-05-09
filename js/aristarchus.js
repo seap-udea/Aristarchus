@@ -358,10 +358,13 @@ function alignImages(obsdir,images,loading,target)
 {
     var $target=$('#'+target);
     var $loading=$('#'+loading);
+    $('.hidealign').hide();
+
     ajaxDo("align","images:"+images+";obsdir:"+obsdir,
 	   function(result){
 	       $target.html(result);
 	       $loading.hide();
+	       $('.hidealign').show();
 	   },
 	   function(error){
 	       $target.html(error);

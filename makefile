@@ -2,7 +2,7 @@ DATABASE=Aristarchus
 BACKDIR=data/dump
 
 clean:
-	@find . -name "*~" -or -name "*.pyc" -exec rm {} \;
+	find . -name "*~" -exec rm {} \;
 
 cleandata:
 	@rm -r data/Aristarco6/*

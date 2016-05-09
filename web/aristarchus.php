@@ -22,6 +22,7 @@ $EMAIL_PASSWORD="AristarchusSAA2016";
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //PERMISSIONS
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
 $QPERMISO=0;
 $PERMCSS="";
 if(isset($_SESSION["email"])){
@@ -711,6 +712,7 @@ function insertSql($table,$mapfields)
   foreach(array_keys($mapfields) as $field){
     $nvalue=$mapfields["$field"];
     if($nvalue==""){$nvalue=$field;}
+    if(!isset($$nvalue)) continue;
     $value=$$nvalue;
     $fields.="$field,";
     $values.="'$value',";

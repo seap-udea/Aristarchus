@@ -36,6 +36,11 @@ $obsdir="data/Aristarco6/$obsid";
 $obsimages=listImages($obsid);
 $nimg=count($obsimages);
 
+//LEGACY -> REMOVE
+if(array_key_exists("sitename",$_SESSION)){
+  unset($_SESSION["sitename"]);
+}
+
 //////////////////////////////////////////////////////////
 //PAGE MENU
 //////////////////////////////////////////////////////////
@@ -47,7 +52,7 @@ $mainmenu.=<<<M
   <a class="inverted" href="aristarco6.php?mode=contacts">Contact times</a>
 </span>
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php?mode=submit">Submit observations</a>
+  <a class="inverted" href="aristarco6.php?mode=submitx">Submit observations</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="aristarco6.php?mode=list">List of observations</a>
@@ -269,6 +274,26 @@ else if($action=="Save" or $action=="Next Step")
       }
       $i++;
     }
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //UPDATE USER INFORMATION
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    if(!preg_match("/code$/",$code)){
+      $code=md5($code)."code";
+    }
+    if(!mysqlCmd("select * from Users where email='$email'")){
+      statusMsg("Creating new user");
+      insertSql("Users",$USERS_FIELDS);
+    }else{
+      statusMsg("Updating user information");
+      insertSql("Users",$USERS_FIELDS);
+    }
+    if(!isset($_SESSION["email"])){
+      session_start();
+      foreach($USERS_FIELDS as $key){
+	$_SESSION["$key"]=$$key;
+      }
+    }
   }
   if($step>=3){
     //%%%%%%%%%%%%%%%%%%%%
@@ -282,6 +307,10 @@ else if($action=="Save" or $action=="Next Step")
 	errorMsg("No $var provided");
 	goto endaction;
       }
+    }
+    if(!$QPERMISO){
+      errorMsg("You don't have permissions to save this observations. Login first.");
+      goto endaction;
     }
 
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -304,28 +333,8 @@ else if($action=="Save" or $action=="Next Step")
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //SAVE IN DATABASE
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    if(!preg_match("/code$/",$code)){
-      $code=md5($code)."code";
-    }
+    //INSERT
     insertSql("Aristarco6",$ARISTARCO6_FIELDS);
-
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //SAVE IN USER DATABASE
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    if(!mysqlCmd("select * from Users where email='$email'")){
-      statusMsg("Creating new user");
-      insertSql("Users",$USERS_FIELDS);
-    }else{
-      statusMsg("Updating user information");
-      insertSql("Users",$USERS_FIELDS);
-    }
-    if(!isset($_SESSION["email"])){
-      session_start();
-      foreach($USERS_FIELDS as $key){
-	$_SESSION["$key"]=$$key;
-      }
-      header("Refresh:0;url=aristarco6.php?action=load&obsid=$obsid&code=$code");
-    }
   }
 
   if($action=="Save"){
@@ -419,6 +428,7 @@ Link to modify observations $obsid
 M;
    sendMail($email,$subject,$message,$EHEADERS);
    statusMsg("Confirmation e-mail sent to $email");
+   $qconfirm=1;
 }
 
 //////////////////////////////////////////////////////////
@@ -550,8 +560,8 @@ $body.=<<<T
 <center>
 <table border=1px>
 <tr>
-  <th>Obs.ID</th>
-  <th>Step</th>
+  <th>ID</th>
+  <th>Submission</th>
   <th>Sitename</th>
   <th>Latitude</th>
   <th>Longitude</th>
@@ -567,7 +577,7 @@ $body.=<<<T
     <a href="aristarco6.php?action=load&obsid=$obsid&email=$email&lcode=$code">$obsid</a>
   </td>
   <td>
-    $step
+    $datesubmission
   </td>
   <td>
     $sitename
@@ -739,6 +749,26 @@ In order to proceed we just need the information below.
 ","text-align:left;font-size:1.2em;background:lightblue");
 
 
+ $helpfinal.=fadingBox("
+
+<p> 
+
+It's time to submit your observations to the Aristarchus Campaign.  In
+order to proceed we need additional information about the observing
+site and (optionally) the instruments used to get the photos.  A
+special requirement of the Campaign is a 'Calibration Image'
+(see <a href=?howto target=_blank>How to participate?</a> page).  This
+is a picture of the computer screen with the same equipment used to
+get the photos, showing the time being.  Below is an example of the
+type of image you should upload:<br/>
+<center><img src='img/time.png' width='20%'></center>
+</p>
+
+",
+		       "text-align:left;font-size:1.2em;background:lightblue");
+
+
+
 //==============================
 //SET BLANK HELP TEXTS
 //==============================
@@ -761,16 +791,20 @@ if($QPERMISO or
   $helpinfo="";
 }
 if($QPERMISO or 
-    file_exists("$obsdir/output.log")){
+   file_exists("$obsdir/output.log") or 
+   $action=="Align"){
   $helpalign="";
 }
-if($QPERMISO or
-   $step>=3){
+if($step>=3 or
+   $action=="load"){
   $helpresults="";
  }
 if($QPERMISO or
    $step>=3){
   $helparistarchus="";
+}
+if($step>=4){
+  $helpfinal="";
 }
 
 //==============================
@@ -947,7 +981,7 @@ B;
 //==============================
 if(!isBlank($STATUS)){
 $body.=<<<B
-<div class="box status">
+<div class='box status'>
 $STATUS
 </div>
 B;
@@ -970,23 +1004,29 @@ if($step>=4){
 //SUBMISSION BUTTON
 //==============================
 if($step>=5){
+  if($action!="load"){
 $body.=<<<B
 <div>
   <div style="text-align:center;margin-top:10px;padding:20px;background:lightgreen;font-size:1.5em;">
     Congratulations! your observations have been submitted!<br/>
   </div>
-  <div style="text-align:center;fontsize:0.8em;margin-top:1em;">
-    <a href="JavaScript:void(null);$('.step').toggle()">View/Edit/Hide information about this observations</a>
-  </div>
 </div>
 B;
-   $onload.="\n$('.step').hide();\n";
+ if(isset($qconfirm)){
+$body.=<<<B
+<div style="text-align:center;fontsize:0.8em;margin-top:1em;">
+  <a href="JavaScript:void(null)" onclick="$('.step').toggle()">View/Edit/Hide information about this observations</a>
+</div>
+B;
+         $onload.="\n$('.step').hide();\n";
+     }
+  }
 }else{
 $body.=<<<B
 <div class="step">
   <div style="text-align:center;margin-top:10px;padding:20px;background:lightgreen;font-size:1.5em;">
   You seem to be ready to
-  <input type="submit" name="action" value="Submit">
+  <input class="submit" type="submit" name="action" value="Submit">
   your observations
 </div>
 </div>
@@ -998,14 +1038,38 @@ if($step>=3){
 //==============================
 //STEP 3: BASIC INFORMATION
 //==============================
+
+  //SET DATE
+  if(!isset($datesubmission)){
+    $datesubmission=$DATE;
+  }
+  $datechange=$DATE;
+  if(!$QPERMISO){
+    $userchange="Anonymous";
+  }else{
+    $userchange=$_SESSION["email"];
+  }
+
   if($step>3){$nextbut="";}
 $body.=<<<B
 <div class="step">
 <a name="#step3"></a>
 <div class="boxtitle">Step 3. Location information</div>
 $nextbut$savebut
-<div style="margin-top:3em">$helparistarchus</div>
+<div style="margin-top:3em">$helpfinal</div>
 <table class="form">
+<!-- -------------------- FIELD -------------------- -->
+<tr>
+  <td class="field">Submission date:</td>
+  <td class="input">
+    <input type="text" name="datesubmission" value="$datesubmission" size="30" readonly>
+    <input type="hidden" name="datechange" value="$datechange">
+    <input type="hidden" name="userchange" value="$userchange">
+  </td>
+</tr>
+<tr>
+  <td class="help" colspan=2>Describe the site of your observations</td>
+</tr>
 <!-- -------------------- FIELD -------------------- -->
 <tr>
   <td class="field">Site name:</td>
@@ -1092,7 +1156,7 @@ $body.=<<<B
     <img src="img/loading.gif"/>
   </div>
 </center>
-<div style="margin-top:3em">$helpresults</div>
+<div class="hidealign" style="margin-top:3em">$helpresults</div>
 <div id="results"></div>
 B;
     $alignimages=implode(",",$obsimages);
@@ -1102,7 +1166,7 @@ B;
    if(file_exists("$obsdir/output.log")){
       $output=shell_exec("cat $obsdir/output.log");
 $body.=<<<B
-<div style="margin-top:3em">$helpresults</div>
+<div class="hidealign" style="margin-top:3em">$helpresults</div>
 $output
 B;
    }
@@ -1115,7 +1179,7 @@ B;
 $body.=<<<B
 <div style="margin-top:3em">$helpalign</div>
 
-<table class="form" style="background:lightgray">
+<table class="hidealign form" style="background:lightgray">
 <tr>
   <td class="field">
     Type of alignment:
@@ -1134,7 +1198,7 @@ $body.=<<<B
 </tr>
 </table>
 
-<table id="userinfo" class="form nolevel1" style="background:lightgray">
+<table id="userinfo" class="hidealign form nolevel1" style="background:lightgray">
 <tr>
   <td class="field">Your name:</td>
   <td class="input">
