@@ -21,7 +21,7 @@ $mainmenu=getMainMenu();
 //////////////////////////////////////////////////////////
 $mainmenu.=<<<M
 <span class="botonmenu">
-  <a class="inverted" href="aristarco6.php?mode=submit">Mercury Transit</a>
+  <a class="inverted" href="aristarco6.php?mode=submitx">Mercury Transit</a>
 </span>
 <span class="botonmenu">
   <a class="inverted" href="http://bit.ly/aristarco-saa-6-en" target="_blank">Campaign Site</a>
@@ -180,7 +180,7 @@ $body.=newsBox("01/05/2016","Upload page of Mercury transit images",
 
 The transit of Mercury of May 9 is coming and we are preparing the
 online tools to assist participants in the Aristarchus Campaign to
-analyze and submit their images. The <a href=aristarco6.php?mode=submit>submission
+analyze and submit their images. The <a href=aristarco6.php?mode=submitx>submission
 page</a> is ready.  Using this page you will be able not only to
 submit your images but also to perform basic analysis on them.
 
