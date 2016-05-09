@@ -162,8 +162,8 @@ disponible en Español.  Esperamos que <b>a partir del 9 de Mayo de
 $body.=fadingBox("
 <center style='font-size:1.2em;margin-bottom:0.2em;'>
 Welcome to the Activity Site of
-the <a href='http://bit.ly/campana-aristarcho' target='_blank'>Aristarchus
-Campaigns</a>
+the <a href='http://bit.ly/saa.aristarco-6'
+target='_blank'>Aristarchus Campaigns</a>
 </center>
 In this website you will find on-line tools and activities intended to
 make more complete your experience with the Campaigns.  You will also

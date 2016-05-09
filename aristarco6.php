@@ -467,31 +467,26 @@ foreach($files as $file){
 }
 
 $body.=<<<B
-<div style="font-size:1.2em">
+<div style="font-size:1.2em;margin-left:20px;margin-right:20px">
 <p>
-It is exciting.  The day of the Transit of Mercury has arrived.
-People all around the world are preparing their equipments to observe
-a relatively rare phenomenon.
+The day of the Transit of Mercury has arrived.  People around the
+world are preparing their equipments to observe this relatively rare
+phenomenon.
 </p>
 <p>
-The technical team of the Aristarchus Campaigns is also prepared to
-receive observations from all around the world.  For that purpose we
-will release tomorrow morning (when the transit begins) a special
-upload webpage.  
+The team of the <a href=http://bit.ly/saa-aristarco-6>Aristarchus
+Campaigns</a> is also prepared to receive observations from different
+places in the world.  For this purpose, we <b>will release
+tomorrow</b>, when the transit begins, a special <b>uploading and
+image analysis on-line tool</b>.
 </p>
 <p>
-This is the place where the submission webpage work but we have
-disabled it until the day comes.  Using this tool you will not only be
-able to submit your observations but also to get a glimpse of what
-they contain.  In essence you will be helping us to analyze your
-images before you submit them. Cool!
+Using this tool you will not only be able to submit your observations
+to the Campaign, but also to get a glimpse of the information that
+those observations contain.
 </p>
 <p>
-Below we want to offer you some screenshots of this woderful tool we
-have developed for all our contributors.
-</p>
-<p>
-Clear skies for all!
+  Stay tunned! (and of course), clear skies for all!
 </p>
 </div>
 <h3>Submission tool screenshots</h3>
