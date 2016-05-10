@@ -2,16 +2,27 @@ from aristarchus import *
 #############################################################
 #INPUTS
 #############################################################
-obsdir=argv[1]
-images=argv[2]
+typealignment=argv[1]
+obsdir=argv[2]
+images=argv[3]
 
 #############################################################
 #PARAMETERS
 #############################################################
-
 #TOLERANCE TO DETERMINE IF A BORDER CORRESPOND TO A CIRCLE
 DRTOL=5E-2
 NTHRES=3
+
+#############################################################
+#AT LEAST DOWNLOAD ERROR
+#############################################################
+html="""
+<center>
+<a href='%s/cmd.log' target='_blank'>Command</a> | 
+<a href='%s/error.log' target='_blank'>Error output</a><br/>
+</center>
+"""%(obsdir,obsdir)
+print html
 
 #############################################################
 #ANALYZE IMAGES
@@ -25,7 +36,9 @@ print>>stderr,"Number of images: ",nimages
 
 times=[]
 APs=[]
+APSs=[]
 rms=[]
+rsps=[]
 rps=[]
 images=[]
 i=0
@@ -51,10 +64,10 @@ for image in limages:
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     Data=imread("%s/%s"%(obsdir,image))
     Mono=Data[:,:,0]
-    w,h=Mono.shape
-    X,Y=np.meshgrid(np.arange(h),np.arange(w))
+    h,w=Mono.shape
+    X,Y=np.meshgrid(np.arange(w),np.arange(h))
     maxval=Mono.max()
-    print>>stderr, "\nImage %d: '%s', resolution %d x %d..."%(i,image,w,h)
+    print>>stderr, "\nImage %d: '%s', resolution %d x %d..."%(i,image,h,w)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #GET BORDER OF THE SUN
@@ -78,109 +91,34 @@ for image in limages:
             R=Rmean
             dR=Rstd
             dRR=dRr
-        #print>>stderr, "Threshold = %d, Rmean,Rstd,dR = "%(maxval/xthres),Rmean,Rstd,dRr
-
-    nborder=rs.shape[0]
-    print>>stderr, "\t"*1,"Optimal solution:"
-    print>>stderr, "\t"*2,"Threshold = maxval / %.2f"%(xthresmin)
-    print>>stderr, "\t"*2,"R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
-    print>>stderr, "\t"*2,"Center = (%d,%d)"%(xcenter,ycenter)
-    
-    """
-    plt.figure(figsize=(8,8))
-    plt.plot(rs[:,0],rs[:,1],'ro',ms=5,mec='none')
-    """
-
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #IF SOLAR DISK IS NOT COMPLETE FIND CENTER
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     qcomplete=True
     if dRR>DRTOL:qcomplete=False
-    if qcomplete:
-        print>>stderr,"\t"*1,"The Sun is complete"
-    if not qcomplete:
-        print>>stderr,"\t"*1,"The Sun has been chopped"
-        x1=rs[nborder/3,0]
-        y1=rs[nborder/3,1]
-        x2=rs[nborder/2,0]
-        y2=rs[nborder/2,1]
-        
-        #Secant midpoint
-        xs=(x1+x2)/2.;ys=(y1+y2)/2.
-
-        #Direction
-        rl=np.cross([0,0,1],[x2-x1,y2-y1,0])
-        rl=rl/norm(rl)
-        rl=[rl[0],rl[1]]
-        args=dict(rs=rs,rl=rl,rm=[xs,ys])
-
-        dR=1E100
-        for l in np.linspace(-w,w,100):
-            Rr,dRr=radiusPoints(l,args)
-            if dRr<dR:
-                dR=dRr
-                R=Rr
-                lmin=l
-
-        print>>stderr,"\t"*1,"Radial dispersion at solution = ",dR
-        dRR=dR/(1.*R)
-        xcenter=xs+lmin*rl[0]
-        ycenter=ys+lmin*rl[1]
-
-        """
-        plt.plot([x1],[y1],'bs',ms=10)
-        plt.plot([x2],[y2],'rs',ms=10)
-        plt.plot([xs],[ys],'gs',ms=10)
-        plt.plot([x1,x2],[y1,y2],'k-')
-        plt.axhline(ycenter)
-        plt.axvline(xcenter)
-        #"""
-
-        print>>stderr,"\t"*1,"After recalculation:"
-        print>>stderr,"\t"*2,"R = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
-        print>>stderr,"\t"*2,"Center = (%d,%d)"%(xcenter,ycenter)
+    
+    nborder=rs.shape[0]
+    print>>stderr, "\t"*1,"Optimal threshold:"
+    print>>stderr, "\t"*2,"Threshold = maxval / %.2f"%(xthresmin)
+    print>>stderr, "\t"*2,"Rimage = %.2f +/- %.2f (%.5f)"%(R,dR,dRR)
+    print>>stderr, "\t"*2,"Center Image = (%d,%d)"%(xcenter,ycenter)
+    print>>stderr, "\t"*2,"Is solar disk complete? : ",qcomplete
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CALCULATE CENTER AND RADIUS
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    xcenter,ycenter,R,dR=findCircleProperties(rs)
+    print>>stderr,"\t"*1,"Fit result:"
+    print>>stderr,"\t"*2,"R = %.2f +/- %.2f"%(R,dR)
+    print>>stderr,"\t"*2,"Center = (%d,%d)"%(xcenter,ycenter)
 
     """
-    plt.axhline(yc,color='r')
-    plt.axvline(xc,color='r')
-    ext=max(w,h)
-    plt.xlim((0,ext))
-    plt.ylim((0,ext))
+    #PLOT RESULT OF FITTING
+    plt.figure(figsize=(8,8))
+    plt.plot(rs[:,0],rs[:,1],'ro',ms=5,mec='none')
+    for q in np.linspace(0,2*np.pi,1000):
+        plt.plot([xcenter+R*np.cos(q)],[ycenter+R*np.sin(q)],'ko',ms=1,zorder=100)
+    plt.xlim(xcenter-R,xcenter+R)
+    plt.ylim(ycenter-R,ycenter+R)
     plt.savefig("tmp/c.png")
-    break
     #"""
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #CROP IMAGE
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dp=0
-    if qcomplete:
-        print>>stderr,"\t","Cropping a complete image"
-        xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
-        ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
-    else:
-        print>>stderr,"\t","Cropping a partial image"
-        xmin=int(np.round(xcenter-R))-dp;xmax=int(np.round(xcenter+R))+dp
-        ymin=int(np.round(ycenter-R))-dp;ymax=int(np.round(ycenter+R))+dp
-        
-    xmin=cropCoord(xmin,w)
-    ymin=cropCoord(ymin,h)
-    xmax=cropCoord(xmax,w)
-    ymax=cropCoord(ymax,h)
-    cw=xmax-xmin
-    ch=ymax-ymin
-
-    #Cropped image
-    Crop=Data[ymin:ymax,xmin:xmax,:]
-    images[i]["crop"]="%s/%s-crop-result.%s"%(obsdir,fname,ext)
-    plt.imsave(images[i]["crop"],Crop)
-    xcropcenter=roundFloat(xcenter-xmin)
-    ycropcenter=roundFloat(ycenter-ymin)
-
-    res=cw*ch
-    if res<minres:
-        hcommon=ch
-        wcommon=cw
-        minres=res
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #FIND MERCURY POSITION RESPECT TO CENTER
@@ -205,17 +143,101 @@ for image in limages:
     AP=np.arctan2((ym-ycenter),(xm-xcenter))*RAD
     print>>stderr,"\t"*1,"Mercury position : r = %.5f, AP = %.2f deg"%(rm,AP)
 
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #FIND SUNSPOT POSITION RESPECT TO CENTER
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    #DISTANCE TO CENTER
+    if 'Use' not in config["possunspot"]:
+        spos=config["possunspot"].split(",")
+        xsp=float(spos[0]);ysp=float(spos[1])
+        rsp=np.sqrt((xsp-xcenter)**2+(ysp-ycenter)**2)/R
+
+        #APPARENT POSITION ANGLE OF THE SUNSPOT
+        APS=np.arctan2((ysp-ycenter),(xsp-xcenter))*RAD
+        print>>stderr,"\t"*1,"Sunspot position : r = %.5f, AP = %.2f deg"%(rsp,APS)
+    else:
+        rsp=-1
+        APS=0
+
     times+=[time]
     rms+=[rm]
+    rsps+=[rsp]
     rps+=[rp]
     APs+=[AP]
+    APSs+=[APS]
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CROP IMAGE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    crop="%s/%s-crop-result.%s"%(obsdir,fname,ext)
+    iR=roundFloat(R)
+    ch=cw=2*iR
+    
+    Crop=np.asarray(Image.new('RGB',(cw,ch)))
+    Crop.flags.writeable=True
+    print>>stderr,"Size of canvas image:",ch,cw
+
+    #Distance from corner to center of crop image
+    cymin=iR-roundFloat(ycenter)
+    cxmin=iR-roundFloat(xcenter)
+
+    print>>stderr, "Position of corner (x,y): ",cxmin,cymin
+    
+    rxmin=0;rxmax=w
+    rymin=0;rymax=h
+
+    if cxmin<0:
+        rxmin=-cxmin
+        rxmax=rxmin+cw
+        cxmin=0
+        
+    if cymin<0:
+        rymin=-cymin
+        rymax=rymin+ch
+        cymin=0
+
+    cxmax=cxmin+(rxmax-rxmin)
+    cymax=cymin+(rymax-rymin)
+        
+    print>>stderr,"Before: Subimage (%d,%d,%d,%d) [%d,%d] -> Image (%d,%d,%d,%d) [%d,%d]"%(rxmin,rxmax,rymin,rymax,
+                                                                                           rxmax-rxmin,rymax-rymin,
+                                                                                           cxmin,cxmax,cymin,cymax,
+                                                                                           cxmax-cxmin,cymax-cymin)
+    dx=0;dy=0
+    if cxmax>=cw:dx+=cxmax-cw
+    if cymax>=ch:dy+=cymax-ch
+    if rxmax>=w:dx+=rxmax-w
+    if rymax>=h:dy+=rymax-h
+    print>>stderr,"Corrections (dx,dy):",dx,dy
+
+    rxmax-=dx;rymax-=dy
+    cxmax-=dx;cymax-=dy
+
+    print>>stderr,"After: Subimage (%d,%d,%d,%d) [%d,%d] -> Image (%d,%d,%d,%d) [%d,%d]"%(rxmin,rxmax,rymin,rymax,
+                                                                                          rxmax-rxmin,rymax-rymin,
+                                                                                          cxmin,cxmax,cymin,cymax,
+                                                                                          cxmax-cxmin,cymax-cymin)
+    
+    Crop[cymin:cymax,cxmin:cxmax,:3]=Data[rymin:rymax,rxmin:rxmax,:3]
+    imsave(crop,Crop)
+
+    res=cw*ch
+    if res<minres:
+        hcommon=ch
+        wcommon=cw
+        minres=res
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #ROTATE IMAGE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    print>>stderr,"Rotating cropped image by an angle %.2f"%AP
     Rotated=ndimage.rotate(Crop,AP,reshape=False)
-    cond=Rotated[:,:,3]!=255
-    Rotated[cond,3]=255
+
+    if Rotated.shape[2]>3:
+        cond=Rotated[:,:,3]!=255
+        Rotated[cond,3]=255
+
     rotated="%s/%s-rotated-result.%s"%(obsdir,fname,ext)
     plt.imsave(rotated,Rotated)
 
@@ -225,81 +247,103 @@ for image in limages:
     fp=open("%s/%s-align.php"%(obsdir,fname),"w")
     fp.write("""<?php
 $center='%d,%d';
-$cropceneter='%d,%d';
 $R='%.2f';
 $dR='%.2f';
 $tm='%.8f';
 $rm='%.5f';
 $AP='%.2f';
-?>"""%(xcenter,ycenter,xcropcenter,ycropcenter,R,dR,time,rm,AP))
+$rsp='%.5f';
+$APS='%.2f';
+    ?>"""%(xcenter,ycenter,R,dR,time,rm,AP,rsp,APS))
     fp.close()
     i+=1
 
 times=np.array(times)
 rms=np.array(rms)
+rsps=np.array(rsps)
 rps=np.array(rps)
 APs=np.array(APs)
+APSs=np.array(APSs)
+qs=np.zeros_like(rms)
+ds=np.zeros_like(rms)
 
-#############################################################
-#SORT IMAGES ACCORDING TO RADIUS
-#############################################################
-irm=rms.argsort()[::-1]
-rms_s=rms[irm]
-rps_s=rps[irm]
-times_s=times[irm]
-APs_s=APs[irm]
-images=[images[i] for i in irm]
+#//////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////////////////
+# AUTOMATIC ALIGNMENT
+#//////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////////////////
 
-print>>stderr, "\nPoint order:",irm
+if typealignment=='auto':
 
-rs=rms[irm]
-print>>stderr, "Radii:",rs
+    #############################################################
+    #SORT IMAGES ACCORDING TO RADIUS
+    #############################################################
+    irm=rms.argsort()[::-1]
+    rms_s=rms[irm]
+    rps_s=rps[irm]
+    times_s=times[irm]
+    APs_s=APs[irm]
+    images_s=[images[i] for i in irm]
 
-ts=np.zeros(nimages)
-for i in xrange(1,nimages):ts[i]=times_s[i]-times_s[0]
-print>>stderr, "Times:",ts
+    print>>stderr, "\nPoint order:",irm
 
-#############################################################
-#SEARCH FOR A SOLUTION
-#############################################################
-params=dict(ts=ts,rs=rs,verbose=0)
-solution=minimize(tdSlopeMinimize,[45*DEG],args=(params,))
-ql=solution["x"]
+    print>>stderr, "Sorted:"
+    print>>stderr, "Radii:",rms_s
+ 
+    ts_s=np.zeros(nimages)
+    for i in xrange(1,nimages):ts_s[i]=times_s[i]-times_s[0]
+    print>>stderr, "Times:",ts_s
 
-qs,ds,B,m,b,r,logp,s=tdSlope(ql,params)
-print>>stderr, "Angles: ",qs*RAD
+    #############################################################
+    #SEARCH FOR A SOLUTION
+    #############################################################
+    params=dict(ts=ts_s,rs=rms_s,verbose=0)
+    solution=minimize(tdSlopeMinimize,[45*DEG],args=(params,))
+    ql=solution["x"]
 
-if logp<-2:
-    status="Success"
-else:
-    status="Failed"
+    qs_s,ds_s,B,m,b,r,logp,s=tdSlope(ql,params)
+    print>>stderr, "Angles: ",qs_s*RAD
 
+    #Convert from time ordered angles to original sorting
+    for i in xrange(nimages):
+        qs[irm[i]]=qs_s[i]
+        ds[irm[i]]=ds_s[i]
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#PLOT SOLUTION
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-it=ts.argsort()
-ts_s=ts[it]
-ds_s=ds[it]
-tms=np.linspace(0,ts_s[-1],100)
-dms=m*tms+b
-fig=plt.figure()
-ax=fig.gca()
-ax.plot(ts,ds,"rs",ms=20,mec='none')
-ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
+    if logp<-2:
+        status="Success"
+    else:
+        status="Failed"
 
-ax.grid()
-ax.legend(loc='best')
-ax.set_xlabel("Time from most external position (hours)")
-ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
-fig.savefig("%s/alignment-result.png"%obsdir)
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #PLOT SOLUTION
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    it=ts_s.argsort()
+    ts_sort=ts_s[it]
+    ds_sort=ds_s[it]
+    tms=np.linspace(ts_sort.min(),ts_sort.max(),100)
+    dms=m*tms+b
+    fig=plt.figure()
+    ax=fig.gca()
+
+    ax.plot(ts_sort,ds_sort,"rs",ms=20,mec='none')
+    ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
+
+    ax.grid()
+    ax.legend(loc='best')
+    ax.set_xlabel("Time from most external position (hours)")
+    ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
+    fig.savefig("%s/alignment-result.png"%obsdir)
+
+    print>>stderr, "Unsorted:"
+    print>>stderr, "Radii:",rms
+    print>>stderr, "Angles: ",qs*RAD
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #TRANSIT DURATION
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 a=1.0
-b=-2*rs[0]*np.cos(qs[0])
-c=-(1-rs[0]**2)
+b=-2*rms_s[0]*np.cos(qs_s[0])
+c=-(1-rms_s[0]**2)
 d1,d2=quadraticEquation(a,b,c)
 dT=np.abs(d1-d2)
 print>>stderr, "Traverse distance (R): ",dT
@@ -310,10 +354,14 @@ print>>stderr, "Transit duration (hours): ",tT
 #ROTATE IMAGES
 #############################################################
 j=0
-for i in irm:
+
+alpha=0.4
+Alignment=Image.new('RGBA',(wcommon,hcommon),"black")
+Background=Image.new('RGBA',(wcommon,hcommon),"black")
+for i in xrange(nimages):
     
     # Get image information
-    image=images[i]
+    image=images_s[i]
     print>>stderr, "File: ",image["name"]
 
     rotated="%s/%s-rotated-result.%s"%(obsdir,image["name"],image["ext"])
@@ -326,17 +374,17 @@ for i in irm:
     plt.imsave(rotated,Rotated)
 
     if j==0:
-        Alignment=Rotated
         system("cp %s %s"%(rotated,final))
+        Alignment=Image.blend(Alignment,Image.fromarray(Rotated),alpha)
         j+=1
         continue
 
-    print>>stderr, "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rs[i],qs[i]*RAD)
+    print>>stderr, "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rms_s[i],qs_s[i]*RAD)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #LOAD ROTATED IMAGE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Final=ndimage.rotate(Rotated,qs[i]*RAD,reshape=False)
+    Final=ndimage.rotate(Rotated,qs_s[i]*RAD,reshape=False)
     cond=Final[:,:,3]!=255
     Final[cond,3]=255
     plt.imsave(final,Final)
@@ -344,17 +392,16 @@ for i in irm:
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #CALCULATE RESULTING IMAGE5
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Alignment=np.minimum(Alignment,Final)
+    Alignment=Image.blend(Alignment,Image.fromarray(Final),alpha)
     j+=1
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #FINAL ROTATION
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Alignment=ndimage.rotate(Alignment,qs[0]*RAD,reshape=False)
-cond=Alignment[:,:,3]!=255
-Alignment[cond,3]=255
 alignment="%s/image-alignment-result.%s"%(obsdir,image["ext"])
-plt.imsave(alignment,Alignment)
+Alignment=Alignment.rotate(qs_s[0]*RAD)
+Alignment=Image.composite(Alignment,Background,Alignment)
+Alignment.save(alignment)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #HTML
@@ -379,13 +426,18 @@ for i in irm:
 <td class="value">%.2f</td><td class="value">%.1f</td>
 <td class="value">%.1f</td>
 </tr>
-"""%(k,crop,times_s[i],ts[i],rms_s[i],APs_s[i],qs[i]*RAD)
+"""%(k,crop,times_s[i],ts_s[i],rms_s[i],APs_s[i],qs[i]*RAD)
     k+=1
     
     
 imageresult="%s/image-alignment-result.png"%obsdir
 
 html="""
+<center style='font-size:1.2em'>
+<a href=\"JavaScript:void(null)\" onclick=\"$('#detail').toggle()\">View/Hide Analysis Results</a>
+</center>
+
+<div id='detail' style='display:none'>
 <h3>Analysis results</h3>
 
 <h4>Result of the alignment procedure</h4>
@@ -464,17 +516,12 @@ The fitting resulting parameters were:
 <li>s = %.5f</li>
 <li>log p = %.1f</li>
 </ul>
-
-<h4>Other download</h4>
-
-<a href='%s/cmd.log' target='_blank'>Command</a> | 
-<a href='%s/error.log' target='_blank'>Output</a><br/>
+</div>
 """%(status,
      imageresult,imageresult,
      rps.mean(),B,m,tT,
      table,
      obsdir,
-     m,b,r,s,logp,
-     obsdir,obsdir)
+     m,b,r,s,logp)
 
 print html

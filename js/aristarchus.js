@@ -354,13 +354,14 @@ function filesUpload()
     $('#files').html("<b>"+nfiles+" files to upload</b>: "+names.join()+" <b>(press Save to upload)</b>");
 }
 
-function alignImages(obsdir,images,loading,target)
+function alignImages(typealignment,obsdir,images,loading,target)
 {
     var $target=$('#'+target);
     var $loading=$('#'+loading);
     $('.hidealign').hide();
 
-    ajaxDo("align","images:"+images+";obsdir:"+obsdir,
+    var options="typealignment:"+typealignment+";images:"+images+";obsdir:"+obsdir;
+    ajaxDo("align",options,
 	   function(result){
 	       $target.html(result);
 	       $loading.hide();

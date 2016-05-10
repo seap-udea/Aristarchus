@@ -119,7 +119,7 @@ else if($action=="load")
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //SAVE
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-else if($action=="Align")
+else if($action=="Analyze")
 {
   statusMsg("Attempting alignment of observation '$obsid'...");
 }
@@ -635,7 +635,7 @@ $savebut=<<<BUT
 BUT;
 $alignbut=<<<BUT
 <div class="buttons">
-<input class="submit" type="submit" name="action" value="Align" style="margin-bottom:0.5em"><br/>
+<input class="submit" type="submit" name="action" value="Analyze" style="margin-bottom:0.5em"><br/>
 </div>
 BUT;
 
@@ -725,17 +725,15 @@ future (see login).
 ","text-align:left;font-size:1.2em;background:lightblue");
 
  $helpresults.=fadingBox("
+
 <p>
-Congratulations! below you will find the results of the analysising
-your images of the Mercury Transit.  If you find something suspicious
-or something bad, you can try to modify the information about the
-images (times, Mercury or sunspot position), or the parameters in the
-form below.
-</p>
-<p>
-Once ready, we invite you to submit your images and results to the
-Aristarchus Campaign by pressing <input class='submit' type='submit'
-name='action' value='Next Step'>.
+
+We have succesfully performed the analysis of your images.  You may
+check the results using the link below.  This results are preliminary
+and will be double checked by the Aristarchus Campaign technical
+team. If you are ready, we invite you to submit your images and
+results to the Aristarchus Campaign by pressing <input class='submit'
+type='submit' name='action' value='Next Step'>.
 </p>
 ","text-align:left;font-size:1.2em;background:lightblue");
 
@@ -796,7 +794,7 @@ if($QPERMISO or
 }
 if($QPERMISO or 
    file_exists("$obsdir/output.log") or 
-   $action=="Align"){
+   $action=="Analyze"){
   $helpalign="";
 }
 if($step>=3 or
@@ -1151,12 +1149,12 @@ $body.=<<<B
 $nextbut$savebut$alignbut
 B;
 
- if($action=="Align"){
+ if($action=="Analyze"){
 
 $body.=<<<B
 <center id="loading">
   <div>
-  <span style="font-size:1.5em">Aligning</span><br/>
+  <span style="font-size:1.5em">Analyzing</span><br/>
     <img src="img/loading.gif"/>
   </div>
 </center>
@@ -1164,7 +1162,8 @@ $body.=<<<B
 <div id="results"></div>
 B;
     $alignimages=implode(",",$obsimages);
-    $onload.="\nalignImages('$obsdir','$alignimages','loading','results');\n";
+    $cmd="alignImages('$typealignment','$obsdir','$alignimages','loading','results');";
+    $onload.="\nalignImages('$typealignment','$obsdir','$alignimages','loading','results');\n";
  }else{
 
    if(file_exists("$obsdir/output.log")){
@@ -1184,6 +1183,9 @@ $body.=<<<B
 <div style="margin-top:3em">$helpalign</div>
 
 <table class="hidealign form" style="background:lightgray">
+<caption style="font-size:1.2em;margin-bottom:1em;">
+<b>Analysis parameters</b>
+</caption>
 <tr>
   <td class="field">
     Type of alignment:

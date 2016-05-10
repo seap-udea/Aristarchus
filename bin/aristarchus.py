@@ -15,6 +15,7 @@ from scipy.stats import linregress
 from scipy import ndimage
 import re
 import itertools as it
+from PIL import Image
 
 
 #############################################################
@@ -297,9 +298,43 @@ def tdSlopeMinimize(ql,params):
     return logp
 
 def cropCoord(x,w):
-    if x<0:return 0
-    elif x>w:return w
-    else:return x
+    if x<=1:return 0,'l'
+    elif x>=w:return w,'r'
+    else:return x,'c'
     
 def roundFloat(x):
     return int(np.round(x))
+
+def sortAbscisas(rs,xc,yc):
+    rslist=rs.tolist()
+    rslist.sort(key=lambda row:row[1])
+    rs=np.array(rslist)
+
+    #Sort according to angle with respect to centroid                                                   rslist=rs.tolist()
+    rslist.sort(key=lambda row:np.arctan2((row[1]-yc),(row[0]-xc)))
+    rs=np.array(rslist)
+
+    return rs
+
+def fitCircle(x,params):
+    rs=params["rs"]
+    xc=x[0]
+    yc=x[1]
+    R=x[2]
+
+    f=(np.sqrt((rs[:,0]-xc)**2+(rs[:,1]-yc)**2)-R)**2
+    return f.sum()
+
+def findCircleProperties(rs):
+    params=dict(rs=rs)
+    xcenter=rs[:,0].mean()
+    ycenter=rs[:,1].mean()
+    R=max((rs[:,0].max()-rs[:,0].min())/2,
+          (rs[:,1].max()-rs[:,1].min())/2)
+    solution=minimize(fitCircle,[xcenter,ycenter,R],args=(params,))
+    x=solution["x"]
+    xcenter=x[0]
+    ycenter=x[1]
+    R=x[2]
+    dR=np.sqrt(fitCircle(x,params))
+    return xcenter,ycenter,R,dR

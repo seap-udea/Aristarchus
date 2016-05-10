@@ -60,11 +60,12 @@ else if($action=="locate"){
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 else if($action=="align"){
   //PARAMETERS
+  $typealignment=$ps["typealignment"];
   $obsdir=$ps["obsdir"];
   $images=$ps["images"];
 
   //RUN PYTHON PROCEDURE
-  $cmd="$PYTHONCMD bin/aristarco6-align.py $obsdir $images";
+  $cmd="$PYTHONCMD bin/aristarco6-align.py $typealignment $obsdir $images";
   $out="";
   $err="";
   mySystem($cmd,$obsdir,$out,$err);
