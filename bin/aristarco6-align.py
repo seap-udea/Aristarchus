@@ -272,7 +272,6 @@ ds=np.zeros_like(rms)
 # AUTOMATIC ALIGNMENT
 #//////////////////////////////////////////////////////////////////////
 #//////////////////////////////////////////////////////////////////////
-
 if typealignment=='auto':
 
     #############################################################
@@ -338,23 +337,49 @@ if typealignment=='auto':
     print>>stderr, "Radii:",rms
     print>>stderr, "Angles: ",qs*RAD
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#TRANSIT DURATION
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-a=1.0
-b=-2*rms_s[0]*np.cos(qs_s[0])
-c=-(1-rms_s[0]**2)
-d1,d2=quadraticEquation(a,b,c)
-dT=np.abs(d1-d2)
-print>>stderr, "Traverse distance (R): ",dT
-tT=dT/m
-print>>stderr, "Transit duration (hours): ",tT
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #TRANSIT DURATION
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    a=1.0
+    b=-2*rms_s[0]*np.cos(qs_s[0])
+    c=-(1-rms_s[0]**2)
+    d1,d2=quadraticEquation(a,b,c)
+    dT=np.abs(d1-d2)
+    print>>stderr, "Traverse distance (R): ",dT
+    tT=dT/m
+    print>>stderr, "Transit duration (hours): ",tT
+    qrotatefirst=False
+    
+#//////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////////////////
+# SUNSPOT ALIGNMENT
+#//////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////////////////
+else:
+    status='Success'
+    images_s=images
+    irm=np.arange(nimages)
+    times_s=times
+    ts_s=np.zeros(nimages)
+    APs_s=APs
+    for i in xrange(1,nimages):ts_s[i]=times_s[i]-times_s[0]
+    qs_s=APSs*DEG-APs*DEG
+    rms_s=rms
+    
+    m=0
+    b=0
+    r=0
+    s=0
+    logp=0
+    B=0
+    tT=0
+
+    qrotatefirst=True
 
 #############################################################
 #ROTATE IMAGES
 #############################################################
 j=0
-
 alpha=0.4
 Alignment=Image.new('RGBA',(wcommon,hcommon),"black")
 Background=Image.new('RGBA',(wcommon,hcommon),"black")
@@ -373,7 +398,7 @@ for i in xrange(nimages):
     Rotated=imresize(Rotated,(hcommon,wcommon))
     plt.imsave(rotated,Rotated)
 
-    if j==0:
+    if j==0 and not qrotatefirst:
         system("cp %s %s"%(rotated,final))
         Alignment=Image.blend(Alignment,Image.fromarray(Rotated),alpha)
         j+=1
@@ -399,7 +424,8 @@ for i in xrange(nimages):
 #FINAL ROTATION
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 alignment="%s/image-alignment-result.%s"%(obsdir,image["ext"])
-Alignment=Alignment.rotate(qs_s[0]*RAD)
+if typealignment=="auto":
+    Alignment=Alignment.rotate(qs_s[0]*RAD)
 Alignment=Image.composite(Alignment,Background,Alignment)
 Alignment.save(alignment)
 
