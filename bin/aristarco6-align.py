@@ -436,7 +436,6 @@ if typealignment=="auto":
     Alignment=Alignment.rotate(qs_s[0]*RAD)
 Alignment=Image.composite(Alignment,Background,Alignment)
 Alignment.save(alignment)
-exit(0)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #HTML
