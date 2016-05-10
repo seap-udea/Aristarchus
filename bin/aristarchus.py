@@ -15,7 +15,7 @@ from scipy.stats import linregress
 from scipy import ndimage
 import re
 import itertools as it
-from PIL import Image
+from PIL import Image,ImageDraw
 
 
 #############################################################

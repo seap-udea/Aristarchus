@@ -174,8 +174,12 @@ for image in limages:
     iR=roundFloat(R)
     ch=cw=2*iR
     
-    Crop=np.asarray(Image.new('RGB',(cw,ch)))
-    Crop.flags.writeable=True
+    White=Image.new('RGBA',(cw,ch),"white")
+    Crop=Image.new('RGBA',(cw,ch),"black")
+    draw=ImageDraw.Draw(Crop)
+    draw.ellipse((0,0)+Crop.size,fill=255)
+    Crop=Image.composite(Crop,White,Crop)
+
     print>>stderr,"Size of canvas image:",ch,cw
 
     #Distance from corner to center of crop image
@@ -218,7 +222,9 @@ for image in limages:
                                                                                           rxmax-rxmin,rymax-rymin,
                                                                                           cxmin,cxmax,cymin,cymax,
                                                                                           cxmax-cxmin,cymax-cymin)
-    
+
+    Crop=np.asarray(Crop)
+    Crop.flags.writeable=True
     Crop[cymin:cymax,cxmin:cxmax,:3]=Data[rymin:rymax,rxmin:rxmax,:3]
     imsave(crop,Crop)
 
@@ -379,10 +385,12 @@ else:
 #############################################################
 #ROTATE IMAGES
 #############################################################
-j=0
-alpha=0.4
-Alignment=Image.new('RGBA',(wcommon,hcommon),"black")
+
+#CREATE ALIGNMENT BACKGROUND
+Alignment=Image.new('RGBA',(wcommon,hcommon),"white")
 Background=Image.new('RGBA',(wcommon,hcommon),"black")
+
+j=0
 for i in xrange(nimages):
     
     # Get image information
@@ -396,18 +404,17 @@ for i in xrange(nimages):
     # Adjusting to a common size
     print>>stderr, "\t","Ajusting image to common resolution %sx%s"%(hcommon,wcommon)
     Rotated=imresize(Rotated,(hcommon,wcommon))
-    plt.imsave(rotated,Rotated)
-
+    imsave(rotated,Rotated)
+    
     if j==0 and not qrotatefirst:
         system("cp %s %s"%(rotated,final))
-        Alignment=Image.blend(Alignment,Image.fromarray(Rotated),alpha)
         j+=1
         continue
 
     print>>stderr, "\t","Rotating to final position image %d, r = %.2f, q = %.2f..."%(i,rms_s[i],qs_s[i]*RAD)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #LOAD ROTATED IMAGE
+    #ROTATE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     Final=ndimage.rotate(Rotated,qs_s[i]*RAD,reshape=False)
     cond=Final[:,:,3]!=255
@@ -417,7 +424,8 @@ for i in xrange(nimages):
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #CALCULATE RESULTING IMAGE5
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Alignment=Image.blend(Alignment,Image.fromarray(Final),alpha)
+    Alignment=Image.fromarray(np.minimum(np.asarray(Alignment),np.asarray(Final)))
+
     j+=1
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -428,6 +436,7 @@ if typealignment=="auto":
     Alignment=Alignment.rotate(qs_s[0]*RAD)
 Alignment=Image.composite(Alignment,Background,Alignment)
 Alignment.save(alignment)
+exit(0)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #HTML
