@@ -195,6 +195,11 @@ else if($action=="Save" or $action=="Next Step")
 	statusMsg("Saving image $fname as $filename...");
 	shell_exec("cp $tmp '$obsdir/$filename'");
 	shell_exec("identify -verbose '$obsdir/$filename' > $obsdir/${obsid}-$suffix.exif");
+	if($ext=="CR2"){
+	  statusMsg("Storing CR2 image and displaying PNG conversion...");
+	  shell_exec("cp $obsdir/$filename $obsdir/${obsid}-$suffix-original.$ext");
+	  shell_exec("convert -resize 800x $obsdir/$filename $obsdir/${obsid}-$suffix.png");
+	}
 	shell_exec("echo > '$obsdir/$filephp'");
       }
       $obsimages=listImages($obsid);
