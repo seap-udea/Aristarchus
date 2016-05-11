@@ -37,7 +37,11 @@ print>>stderr,"Number of images: ",nimages
 times=[]
 APs=[]
 APSs=[]
+Rs=[]
+dRs=[]
 rms=[]
+rmercs=[]
+rspots=[]
 rsps=[]
 rps=[]
 images=[]
@@ -130,6 +134,7 @@ for image in limages:
     ppos=config["posmercury"].split(",")
     xm=float(ppos[0]);ym=float(ppos[1])
     rm=np.sqrt((xm-xcenter)**2+(ym-ycenter)**2)/R
+    rmerc=np.array([xm,ym])
     
     #APPARENT SIZE OF MERCURY
     Dp=float(ppos[2])
@@ -152,15 +157,18 @@ for image in limages:
         spos=config["possunspot"].split(",")
         xsp=float(spos[0]);ysp=float(spos[1])
         rsp=np.sqrt((xsp-xcenter)**2+(ysp-ycenter)**2)/R
-
+        rspot=np.array([xsp,ysp])
         #APPARENT POSITION ANGLE OF THE SUNSPOT
         APS=np.arctan2((ysp-ycenter),(xsp-xcenter))*RAD
         print>>stderr,"\t"*1,"Sunspot position : r = %.5f, AP = %.2f deg"%(rsp,APS)
     else:
         rsp=-1
         APS=0
+        rspot=no.array([0,0])
 
     times+=[time]
+    Rs+=[R]
+    dRs+=[dR]
     rms+=[rm]
     rsps+=[rsp]
     rps+=[rp]
@@ -174,15 +182,15 @@ for image in limages:
     iR=roundFloat(R)
     ch=cw=2*iR
     
+    # Composite image with white disk
     White=Image.new('RGBA',(cw,ch),"white")
     Crop=Image.new('RGBA',(cw,ch),"black")
     draw=ImageDraw.Draw(Crop)
     draw.ellipse((0,0)+Crop.size,fill=255)
     Crop=Image.composite(Crop,White,Crop)
-
     print>>stderr,"Size of canvas image:",ch,cw
 
-    #Distance from corner to center of crop image
+    # Distance from corner to center of crop image
     cymin=iR-roundFloat(ycenter)
     cxmin=iR-roundFloat(xcenter)
 
@@ -230,9 +238,19 @@ for image in limages:
 
     res=cw*ch
     if res<minres:
+        Rcommon=R
         hcommon=ch
         wcommon=cw
         minres=res
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # MERCURY POSITION IN THE CROPPED IMAGE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    print "Before:",rmerc
+    rmerc=np.array([cxmin,cymin])+(rmerc-np.array([rxmin,rymin]))
+    print "After:",rmerc
+    rspot=np.array([cxmin,cymin])+(rspot-np.array([rxmin,rymin]))
+
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #ROTATE IMAGE
@@ -240,6 +258,11 @@ for image in limages:
     print>>stderr,"Rotating cropped image by an angle %.2f"%AP
     Rotated=ndimage.rotate(Crop,AP,reshape=False)
 
+    # ROTATE MERCURY AND SPOT POSITION
+    rcen=np.array([cw/2.,ch/2.])
+    rmerc=rcen+rotatePoint(rmerc-rcen,AP*DEG)
+    rspot=rcen+rotatePoint(rspot-rcen,AP*DEG)
+    
     if Rotated.shape[2]>3:
         cond=Rotated[:,:,3]!=255
         Rotated[cond,3]=255
@@ -250,6 +273,11 @@ for image in limages:
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #SAVE PHP CONFIGURATION FILE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    print>>stderr,"Mercury after rotation:",rmerc
+    print>>stderr,"Sunspot after rotation:",rspot
+    rmercs+=[rmerc]
+    rspots+=[rspot]
+
     fp=open("%s/%s-align.php"%(obsdir,fname),"w")
     fp.write("""<?php
 $center='%d,%d';
@@ -265,13 +293,19 @@ $APS='%.2f';
     i+=1
 
 times=np.array(times)
+Rs=np.array(Rs)
+dRs=np.array(dRs)
 rms=np.array(rms)
 rsps=np.array(rsps)
 rps=np.array(rps)
 APs=np.array(APs)
 APSs=np.array(APSs)
+rmercs=np.array(rmercs)
+rspots=np.array(rspots)
 qs=np.zeros_like(rms)
 ds=np.zeros_like(rms)
+
+print>>stderr,"Mercury positions:\n",rmercs
 
 #//////////////////////////////////////////////////////////////////////
 #//////////////////////////////////////////////////////////////////////
@@ -284,20 +318,29 @@ if typealignment=='auto':
     #SORT IMAGES ACCORDING TO RADIUS
     #############################################################
     irm=rms.argsort()[::-1]
+    Rs_s=Rs[irm]
+    dRs_s=dRs[irm]
     rms_s=rms[irm]
     rps_s=rps[irm]
     times_s=times[irm]
     APs_s=APs[irm]
     images_s=[images[i] for i in irm]
 
-    print>>stderr, "\nPoint order:",irm
+    rmercs_s=rmercs[irm]
+    rspots_s=rspots[irm]
 
-    print>>stderr, "Sorted:"
-    print>>stderr, "Radii:",rms_s
+
+    print>>stderr,"\nPoint order:",irm
+
+    print>>stderr,"Sorted:"
+    print>>stderr,"Radii:",rms_s
  
     ts_s=np.zeros(nimages)
     for i in xrange(1,nimages):ts_s[i]=times_s[i]-times_s[0]
-    print>>stderr, "Times:",ts_s
+    print>>stderr,"Times:",ts_s
+
+    print>>stderr,"Mercury sorted:\n",rmercs_s
+    print>>stderr,"Spot sorted:\n",rmercs_s
 
     #############################################################
     #SEARCH FOR A SOLUTION
@@ -307,7 +350,7 @@ if typealignment=='auto':
     ql=solution["x"]
 
     qs_s,ds_s,B,m,b,r,logp,s=tdSlope(ql,params)
-    print>>stderr, "Angles: ",qs_s*RAD
+    print>>stderr,"Angles: ",qs_s*RAD
 
     #Convert from time ordered angles to original sorting
     for i in xrange(nimages):
@@ -329,14 +372,12 @@ if typealignment=='auto':
     dms=m*tms+b
     fig=plt.figure()
     ax=fig.gca()
-
     ax.plot(ts_sort,ds_sort,"rs",ms=20,mec='none')
     ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
-
     ax.grid()
     ax.legend(loc='best')
-    ax.set_xlabel("Time from most external position (hours)")
-    ax.set_ylabel(r"Distance between points (apparent solar radii, $\theta_\odot$)")
+    ax.set_xlabel("Time from reference position (hours)")
+    ax.set_ylabel(r"Distance from reference position (apparent solar radii, $\theta_\odot$)")
     fig.savefig("%s/alignment-result.png"%obsdir)
 
     print>>stderr, "Unsorted:"
@@ -363,14 +404,24 @@ if typealignment=='auto':
 #//////////////////////////////////////////////////////////////////////
 else:
     status='Success'
-    images_s=images
+
     irm=np.arange(nimages)
-    times_s=times
+    
+    it=times.argsort()
+
+    images_s=[images[i] for i in it]
+    APs_s=APs[it]
+    Rs_s=Rs[it]
+    dRs_s=dRs[it]
+    times_s=times[it]
     ts_s=np.zeros(nimages)
-    APs_s=APs
     for i in xrange(1,nimages):ts_s[i]=times_s[i]-times_s[0]
-    qs_s=APSs*DEG-APs*DEG
-    rms_s=rms
+    qs_s=APSs[it]*DEG-APs[it]*DEG
+    rms_s=rms[it]
+    rmercs_s=rmercs[it]
+    rspots_s=rmercs[it]
+
+    # DETERMINE PROPERTIES
     
     m=0
     b=0
@@ -397,17 +448,33 @@ for i in xrange(nimages):
     image=images_s[i]
     print>>stderr, "File: ",image["name"]
 
+    # Position of Mercury and the Sun
+    rmerc=rmercs_s[i]
+    rspot=rspots_s[i]
+
     rotated="%s/%s-rotated-result.%s"%(obsdir,image["name"],image["ext"])
     Rotated=imread(rotated)
+    rh,rw=Rotated[:,:,0].shape
     final="%s/%s-final-result.%s"%(obsdir,image["name"],image["ext"])
 
     # Adjusting to a common size
     print>>stderr, "\t","Ajusting image to common resolution %sx%s"%(hcommon,wcommon)
     Rotated=imresize(Rotated,(hcommon,wcommon))
     imsave(rotated,Rotated)
-    
+
+    # Position in scaled image
+    sx=(1.*wcommon)/rw;sy=(1.*hcommon)/rh
+    rmerc[0]*=sx;rmerc[1]*=sy
+    rspot[0]*=sx;rspot[1]*=sy
+    rcen=np.array([rw/2.,rh/2.])
+
     if j==0 and not qrotatefirst:
         system("cp %s %s"%(rotated,final))
+        Alignment=Image.fromarray(np.minimum(np.asarray(Alignment),np.asarray(Rotated)))
+        rmercs_s[i]=rmerc
+        rspots_s[i]=rspot
+        print>>stderr,"Mercury after final rotation:",rmerc
+        print>>stderr,"Spot after final rotation:",rspot
         j+=1
         continue
 
@@ -421,21 +488,183 @@ for i in xrange(nimages):
     Final[cond,3]=255
     plt.imsave(final,Final)
 
+    # Rotate Mercury and Spot
+    rmerc=rcen+rotatePoint(rmerc-rcen,qs_s[i])
+    rspot=rcen+rotatePoint(rspot-rcen,qs_s[i])
+    print>>stderr,"Mercury after final rotation:",rmerc
+    print>>stderr,"Spot after final rotation:",rspot
+
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #CALCULATE RESULTING IMAGE5
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     Alignment=Image.fromarray(np.minimum(np.asarray(Alignment),np.asarray(Final)))
 
+    rmercs_s[i]=rmerc
+    rspots_s[i]=rspot
+
     j+=1
+
+alignment="%s/image-alignment-norot-result.%s"%(obsdir,image["ext"])
+Alignment.save(alignment)
+ah,aw=Alignment.size
+rcen=np.array([aw/2.,ah/2.])
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#CORD PROPERTIES
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+it=times_s.argsort()
+
+times_sort=times_s[it]
+rmerc_sort=rmercs_s[it]
+
+mp,bp,rp,pp,sp=linregress(rmerc_sort[:,0]-rcen[0],rmerc_sort[:,1]-rcen[1])
+qimg=np.arctan(mp)
+print "Cord:",mp,bp,rp,pp,sp,qimg*RAD,qs_s[0]*RAD
+
+#==============================
+#CALCULATE IMPACT PARAMETER
+#==============================
+B=np.abs(bp)/np.sqrt(mp**2+1)/Rcommon
+print "Impact parameter:",B
+
+#==============================
+#CALCULATE COORD. OF CONTACTS
+#==============================
+a=-mp
+b=1
+c=bp
+r=Rcommon
+
+disc=r**2*(a**2+b**2)-c**2
+
+xm=(a*c+b*np.sqrt(disc))/(a**2+b**2)+rcen[0]
+ym=(b*c-a*np.sqrt(disc))/(a**2+b**2)+rcen[1]
+rcont1=np.array([xm,ym])
+
+xM=(a*c-b*np.sqrt(disc))/(a**2+b**2)+rcen[0]
+yM=(b*c+a*np.sqrt(disc))/(a**2+b**2)+rcen[1]
+rcont2=np.array([xM,yM])
+
+#====================================
+#CALCULATE DISTANCE TO CLOSEST POINTS
+#====================================
+dini=np.linalg.norm(rmerc_sort[0]-rcont1)
+dlast=np.linalg.norm(rmerc_sort[-1]-rcont1)
+if dini<dlast:
+    dcont1=dini/Rcommon
+    tcont1=times_sort[0]
+else:
+    dcont1=dlast/Rcommon
+    tcont1=times_sort[-1]
+
+dini=np.linalg.norm(rmerc_sort[0]-rcont2)
+dlast=np.linalg.norm(rmerc_sort[-1]-rcont2)
+if dini<dlast:
+    dcont2=dini/Rcommon
+    tcont2=times_sort[0]
+else:
+    dcont2=dlast/Rcommon
+    tcont2=times_sort[-1]
+
+print tcont1,dcont1
+print tcont2,dcont2
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #FINAL ROTATION
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 alignment="%s/image-alignment-result.%s"%(obsdir,image["ext"])
-if typealignment=="auto":
-    Alignment=Alignment.rotate(qs_s[0]*RAD)
+Alignment=Alignment.rotate(qimg*RAD)
+
+for i in xrange(nimages):
+    
+    # Position of Mercury and the Sun
+    rmerc=rmercs_s[i]
+    rspot=rspots_s[i]
+    
+    rmerc=rcen+rotatePoint(rmerc-rcen,qs_s[0])
+    rspot=rcen+rotatePoint(rspot-rcen,qs_s[0])
+    rmercs_s[i]=rmerc
+    rspots_s[i]=rspot
+
+# IN CASE OF SPOT ALIGNMENT
+if typealignment=='spot':
+    Alignment=Alignment.rotate(qimg*RAD)
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CALCULATE DISTANCE BETWEEN POINTS
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    it=times_s.argsort()
+    j=0
+    ds_s=np.zeros_like(times_s)
+    for i in it:
+        rmerc=rmercs_s[i]
+        t=ts_s[i]
+        if j==0:
+            ds_s[i]=0.0
+            rini=rmerc
+        if j>0:
+            ds_s[i]=np.linalg.norm(rmerc-rini)/Rcommon
+
+        print t,rmerc,ds_s[i],ds_s[i]
+        j+=1
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #SOLUTION ANGULAR MOTION
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    m,b,r,p,s=linregress(ts_s[it],ds_s[it])
+    logp=np.log(p)
+
+    ts_sort=ts_s[it]
+    ds_sort=ds_s[it]
+    tms=np.linspace(ts_sort.min(),ts_sort.max(),100)
+    dms=m*tms+b
+    fig=plt.figure()
+    ax=fig.gca()
+    ax.plot(ts_sort,ds_sort,"rs",ms=20,mec='none')
+    ax.plot(tms,dms,"r-",label=r"Linear fit, $\dot\theta$ = %.4f $\theta_\odot$/hour"%(m))
+    ax.grid()
+    ax.legend(loc='best')
+    ax.set_xlabel("Time from reference position (hours)")
+    ax.set_ylabel(r"Distance from reference position (apparent solar radii, $\theta_\odot$)")
+    fig.savefig("%s/alignment-result.png"%obsdir)
+
+print>>stderr,"Mercury final position:\n",rmercs_s
+print>>stderr,"Spot final position:\n",rspots_s
 Alignment=Image.composite(Alignment,Background,Alignment)
 Alignment.save(alignment)
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#FINAL REPORT
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+report="%s/final-report.php"%(obsdir)
+fp=open(report,"w")
+fp.write("""<?php
+$report=array(
+""");
+for i in xrange(nimages):
+
+    image=images_s[i]
+    name=image["name"]
+
+    time=times_s[i]
+    tm=ts_s[i]
+    rm=rms_s[i]
+    q=qs_s[i]
+    rmerc=rmercs_s[i]
+    rspot=rspots_s[i]
+
+    fp.write("""
+              '%s'=>array(
+                          'time'=>'%s',
+                          'rm'=>%.5f,
+                          'tm'=>%.5f,
+                          'q'=>%.2f,
+                          'rmerc'=>array(%.2f,%.2f),
+                          'rspot'=>array(%.2f,%.2f)
+                         ),
+    """%(name,time,rm,tm,q,rmerc[0],rmerc[1],rspot[0],rspot[1]))
+fp.write(");\n?>");
+fp.close()
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #HTML

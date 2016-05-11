@@ -9,6 +9,8 @@ import matplotlib.cm as cm
 import numpy as np
 from sys import argv,exit,stderr
 from os import system
+from commands import getoutput as System
+import json
 from scipy.misc import *
 from scipy.optimize import minimize,bisect
 from scipy.stats import linregress
@@ -338,3 +340,15 @@ def findCircleProperties(rs):
     R=x[2]
     dR=np.sqrt(fitCircle(x,params))
     return xcenter,ycenter,R,dR
+
+def rotatePoint(r,theta):
+    cost=np.cos(theta)
+    sint=np.sin(theta)
+    R=np.array([[cost,+sint],[-sint,cost]])
+    rp=R.dot(r)
+    return rp
+
+def php2json(includefile):
+    out=System("""php -r 'include("%s");echo json_encode($report);'"""%includefile)
+    dictionary=json.loads(out)
+    return dictionary
