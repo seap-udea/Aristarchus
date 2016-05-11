@@ -32,7 +32,7 @@ for imagefile in imagefiles:
 
     #FILE PROPERTIES
     obsdir, image,fname,ext=fileProperties(imagefile)
-    images+=[dict(img=image,name=fname,ext=ext)]
+    images+=[dict(file=imagefile,img=image,name=fname,ext=ext)]
 
     jfile="%s/scratch/%s-crop.json"%(obsdir,fname)
     conf=json2dict(jfile)
@@ -99,7 +99,7 @@ if typealignment=="auto":
     #############################################################
 
     #==================================================
-    #SORT IMAGES ACCORDING TO RADIUS
+    #SORT IMAGES ACPATHING TO RADIUS
     #==================================================
     irm=rms.argsort()[::-1]
     images_s=[images[i] for i in irm]
@@ -139,6 +139,9 @@ if typealignment=="auto":
     print TAB*1,"Times: ",times_s
     print TAB*1,"Angles: ",qs_s*RAD
 
+    qimg=qs_s[0]
+    qs_s[0]=0.0
+
     qs_s=qs_s+APs_s*DEG
     print TAB*1,"Position angles: ",APs_s
     print TAB*1,"Final angles: ",qs_s*RAD
@@ -176,7 +179,7 @@ else:
     print TAB*0,"Using the sunspot to align..."
 
     #==================================================
-    #SORT IMAGES ACCORDING TO TIME
+    #SORT IMAGES ACPATHING TO TIME
     #==================================================
     it=times.argsort()
     images_s=[images[i] for i in it]
@@ -210,16 +213,21 @@ else:
 #############################################################
 #ROTATE IMAGES
 #############################################################
-Alignment=Image.new('RGBA',(wcommon,hcommon),"white")
+Aligned=Image.new('RGBA',(wcommon,hcommon),"white")
 Background=Image.new('RGBA',(wcommon,hcommon),"black")
 
+rcen=np.array([wcommon/2.,hcommon/2.])
 j=0
 for i in xrange(nimages):
 
     #IMAGE INFORMATION
     image=images_s[i]
     fname=image["name"]
-
+    
+    #POSITION OF MERCURY AND SUNSPOT
+    rmerc=rmercs_s[i]
+    rspot=rspots_s[i]
+    
     #OPEN CROP IMAGE
     crop="%s/scratch/%s-crop.png"%(obsdir,fname)
     Crop=Image.open(crop)
@@ -229,14 +237,119 @@ for i in xrange(nimages):
     #RESIZE IMAGE
     Resize=Crop.resize((wcommon,hcommon))
     
-    #ADJUST POSITION OF MERCURY & SUN
-    rmercs_s[0]*=sx;rmercs_s[1]*=sy
-    rspots_s[0]*=sx;rspots_s[1]*=sy
-    rcen=np.array([cw/2.,ch/2.])
+    #ADJUST POSITION OF MERCURY & SUNSPOT
+    rmerc[0]*=sx;rmerc[1]*=sy
+    rspot[0]*=sx;rspot[1]*=sy
     
     #ROTATE IMAGE
+    rotated="%s/scratch/%s-rotated.%s"%(obsdir,fname,ext)
     Rotated=Resize.rotate(qs_s[i]*RAD)
-    rotated="%s/%s-rotated.%s"%(obsdir,fname,ext)
+    Rotated=Image.composite(Rotated,Background,Rotated)
     Rotated.save(rotated)
+    
+    #ADJUST POSITION OF MERCURY & SUNSPOT
+    rmerc=rcen+rotatePoint(rmerc-rcen,qs_s[i])
+    rspot=rcen+rotatePoint(rspot-rcen,qs_s[i])
+
+    #STORING MERCURY AND SUNSPOT POSITION
+    rmercs_s[i]=rmerc
+    rspots_s[i]=rspot
 
     #BUILD ALIGNED
+    Aligned=Image.fromarray(np.minimum(np.asarray(Aligned),np.asarray(Rotated)))
+
+    j+=1
+
+aligned="%s/scratch/aligned.%s"%(obsdir,ext)
+Aligned.save(aligned)
+
+#############################################################
+#PATH PROPERTIES
+#############################################################
+it=times_s.argsort()
+times_sort=times_s[it]
+rmerc_sort=rmercs_s[it]
+mp,bp,rp,pp,sp=linregress(rmerc_sort[:,0]-rcen[0],rmerc_sort[:,1]-rcen[1])
+qimg=np.arctan(mp)
+
+print TAB*0,"Cord properties:"
+print TAB*1,"Inclination angle: ",qimg*RAD
+print TAB*1,"Correlation coefficient: ",rp
+print TAB*1,"log(p-value): ",np.log(pp)
+
+#############################################################
+#ALIGNMENT DEBUG
+#############################################################
+debug="%s/scratch/aligned-debug.%s"%(obsdir,ext)
+fig,ax=imgFigure(np.asarray(Aligned))
+
+xs=np.linspace(0,cw,100)
+ys=rcen[1]+mp*(xs-rcen[0])+bp
+cond=np.sqrt((xs-rcen[0])**2+(ys-rcen[1])**2)<=Rcommon
+
+ax.plot(rmercs_s[:,0],rmercs_s[:,1],'b+',ms=5,mfc='none')
+ax.plot(rmercs_s[:,0],rmercs_s[:,1],'bo',ms=10,mfc='none')
+ax.plot(rspots_s[:,0],rspots_s[:,1],'ro',ms=5,mfc='none')
+ax.plot(xs[cond],ys[cond],'k--')
+
+fig.savefig(debug)
+
+#############################################################
+#FINAL ALIGNMENT
+#############################################################
+aligned="%s/scratch/final-aligned.%s"%(obsdir,ext)
+Aligned=Aligned.rotate(qimg*RAD)
+Aligned=Image.composite(Aligned,Background,Aligned)
+Aligned.save(aligned)
+
+#ROTATE MERCURY AND SUNSPOT POSITION
+rmercs_s=np.array([rcen+rotatePoint(rmercs_s[i]-rcen,qimg) for i in xrange(nimages)])
+rspots_s=np.array([rcen+rotatePoint(rspots_s[i]-rcen,qimg) for i in xrange(nimages)])
+
+#FIT PATH
+it=times_s.argsort()
+times_sort=times_s[it]
+rmerc_sort=rmercs_s[it]
+mp,bp,rp,pp,sp=linregress(rmerc_sort[:,0]-rcen[0],rmerc_sort[:,1]-rcen[1])
+qimg=np.arctan(mp)
+
+#############################################################
+#ALIGNMENT DEBUG
+#############################################################
+debug="%s/scratch/final-aligned-debug.%s"%(obsdir,ext)
+fig,ax=imgFigure(np.asarray(Aligned))
+
+xs=np.linspace(0,cw,100)
+ys=rcen[1]+mp*(xs-rcen[0])+bp
+cond=np.sqrt((xs-rcen[0])**2+(ys-rcen[1])**2)<=Rcommon
+
+ax.plot(rmercs_s[:,0],rmercs_s[:,1],'b+',ms=5,mfc='none')
+ax.plot(rmercs_s[:,0],rmercs_s[:,1],'bo',ms=10,mfc='none')
+ax.plot(rspots_s[:,0],rspots_s[:,1],'ro',ms=5,mfc='none')
+ax.plot(xs[cond],ys[cond],'k--')
+
+fig.savefig(debug)
+
+#############################################################
+# SAVE ALIGNMENT RESULT
+#############################################################
+it=times_s.argsort()
+jfile="%s/scratch/aligned.json"%(obsdir)
+properties=dict(
+    #Images
+    imagefiles=[images_s[i]["file"] for i in it],
+    typealignment=typealignment,
+    size=[wcommon,hcommon],
+    rcen=rcen.tolist(),
+    times=times_s[it].tolist(),
+
+    #Mercury positions
+    rmercs=rmercs_s[it].tolist(),
+
+    #Sunspot positions
+    rspots=rspots_s[it].tolist(),
+    
+    #Coord equation coefficients
+    pathcoef=[mp,bp]
+)
+dict2json(properties,jfile)
