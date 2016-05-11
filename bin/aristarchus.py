@@ -24,6 +24,7 @@ from PIL import Image,ImageDraw
 # MACROS
 #############################################################
 norm=np.linalg.norm
+TAB="\t"
 
 #############################################################
 # CONSTANTS
@@ -328,6 +329,7 @@ def fitCircle(x,params):
     return f.sum()
 
 def findCircleProperties(rs):
+    npoints=len(rs)
     params=dict(rs=rs)
     xcenter=rs[:,0].mean()
     ycenter=rs[:,1].mean()
@@ -338,7 +340,7 @@ def findCircleProperties(rs):
     xcenter=x[0]
     ycenter=x[1]
     R=x[2]
-    dR=np.sqrt(fitCircle(x,params))
+    dR=np.sqrt(fitCircle(x,params))/npoints
     return xcenter,ycenter,R,dR
 
 def rotatePoint(r,theta):
@@ -352,3 +354,77 @@ def php2json(includefile):
     out=System("""php -r 'include("%s");echo json_encode($report);'"""%includefile)
     dictionary=json.loads(out)
     return dictionary
+
+def imgFigure(Data):
+    h,w=Data[:,:,0].shape
+    fig=plt.figure(figsize=(w/100.,h/100.))
+    ax=fig.add_axes([0,0,1,1])
+    ax.imshow(Data,extent=[-1,w,h,1])
+    ax.axis('off')
+    ax.set_xlim((0,w))
+    ax.set_ylim((h,0))
+    return fig,ax
+
+def boxFig(r,params):
+
+    verbose=1
+
+    #Subimage
+    S=params["S"]
+    
+    #Size
+    h,w=S.shape
+    
+    #Variables
+    x=r[0]
+    y=r[1]
+    R=r[2]
+
+    if (x**2+y**2)>(w**2+h**2)-R:return 1e100
+
+    if verbose:print "Testing %.0f,%.0f, R = %.2f"%(x,y,R)
+    if verbose:print "S:"%(S)
+
+    #Mask
+    B=255*np.ones((h,w))
+    X,Y=np.meshgrid(np.arange(w),np.arange(h))
+    cond=np.sqrt((X-x)**2+(Y-y)**2)<=R
+    cond=(np.abs(X-x)<R)*(np.abs(Y-y)<R)
+    
+    if verbose:print "Cond:\n",cond
+    
+    B[cond]=0
+    if verbose:print "B:\n",B
+
+    #Difference
+    D=np.abs(S-B)
+
+    if verbose:print "D:\n",D
+
+    f=D.sum()
+    if verbose:
+        print "Result:",f
+        raw_input()
+
+    return f
+
+def dict2json(dic,jfile):
+    f=open(jfile,"w")
+    f.write(json.dumps(dic))
+    f.close()
+
+def json2dict(jfile):
+    f=open(jfile,"r")
+    string=f.readline()
+    dic=json.loads(string)
+    return dic
+    
+def fileProperties(mfile):
+    name=System("basename %s"%mfile)
+    mdir=System("dirname %s"%mfile)
+    parts=name.split(".")
+    ext=parts[-1]
+    fname="".join(parts[:-1])
+    return mdir,name,fname,ext
+    
+    

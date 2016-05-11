@@ -588,8 +588,6 @@ for i in xrange(nimages):
 
 # IN CASE OF SPOT ALIGNMENT
 if typealignment=='spot':
-    Alignment=Alignment.rotate(qimg*RAD)
-
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #CALCULATE DISTANCE BETWEEN POINTS
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
