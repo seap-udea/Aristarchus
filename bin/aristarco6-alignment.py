@@ -56,8 +56,7 @@ APSs=np.array(APSs)
 rspots=np.array(rspots)
 rsps=np.array(rsps)
 
-
-print rmercs
+print rms
 
 qs=np.zeros_like(rms)
 ds=np.zeros_like(rms)
